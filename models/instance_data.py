@@ -25,8 +25,8 @@ class InstanceData:
         print()
 
         for i,l in enumerate(self.libs):
-            print(f'Library {i} has {l.num_books} books, the signup process takes {l.signup_days} days, and the library can ship {l.books_per_day} books per day.')
-            print(f'The books in library {i} are: ' + ', '.join(f'book {x}' for x in l.books[:-1]) + f', and book {l.books[-1]}.')
+            print(f'Library {l.id} has {l.num_books} books, the signup process takes {l.signup_days} days, and the library can ship {l.books_per_day} books per day.')
+            print(f'The books in library {l.id}  are: ' + ', '.join(f'book {x}' for x in l.books[:-1]) + f', and book {l.books[-1]}.')
             
         print()
 

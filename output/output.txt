@@ -1,0 +1,9 @@
+Signed libraries: Library 0, Library 1
+Unsigned libraries: 
+
+Scanned books per library:
+Library 0: 3, 4, 2, 1, 0
+Library 1: 5
+
+Overall scanned books: 0, 1, 2, 3, 4, 5
+Not scanned books: 

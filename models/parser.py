@@ -67,7 +67,7 @@ class Parser:
                         except ValueError:
                             raise ValueError(f"Book IDs for library {i} must be integers")
                         
-                        library = Library(books_count, signup_days, books_per_day, books)
+                        library = Library(books_count, signup_days, books_per_day, books, scores)
                         libs.append(library)
 
                     return InstanceData(num_books, num_libs, num_days, scores, libs)

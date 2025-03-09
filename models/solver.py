@@ -61,47 +61,48 @@ class Solver:
         # print(f"Processing complete! Output written to: {self.output_file_name}")
         # print(f"Libraries summary saved to: {self.libraries_output_file_name}")
 
-    def solve(self, data):
-        curr_time = 0
-        signed_libraries = []
-        unsigned_libraries = []
-        scanned_books = set()
-        
+    def generateInitialSolution(self, data):
+       
         shuffled_libs = data.libs.copy()
         random.shuffle(shuffled_libs)
 
-        for lib in shuffled_libs:
-            if curr_time + lib.signup_days >= data.num_days:
-                
-                unsigned_libraries.append(lib.id)
+        signed_libraries = []
+        unsigned_libraries = []
+        scanned_books_per_library = {}
+        scanned_books = set()
+        curr_time = 0
+
+        for library in tqdm(shuffled_libs):
+            if curr_time + library.signup_days >= data.num_days:
+                unsigned_libraries.append(f"Library {library.id}")
                 continue
 
-            days_left_for_book_scanning = data.num_days - (curr_time + lib.signup_days)
-            max_books_to_be_scanned = days_left_for_book_scanning * lib.books_per_day
+            time_left = data.num_days - (curr_time + library.signup_days)
+            max_books_scanned = time_left * library.books_per_day
 
-            filtered_books = [book for book in lib.books if book not in scanned_books]
-            books_that_can_be_scanned = filtered_books[:max_books_to_be_scanned]
+            available_books = sorted(
+                {book.id for book in library.books} - scanned_books, key=lambda b: -data.scores[b]
+                )[:max_books_scanned]
 
-            if len(books_that_can_be_scanned) == 0:
-                unsigned_libraries.append(lib.id)
-                continue
+            if available_books:
+                signed_libraries.append(f"Library {library.id}")
+                scanned_books_per_library[library.id] = available_books
+                scanned_books.update(available_books)
+                curr_time += library.signup_days
 
-            signed_libraries.append(lib.id)
-            scanned_books.update(books_that_can_be_scanned)
-            curr_time += lib.signup_days
-            
-        return Solution(signed_libraries, unsigned_libraries, list(scanned_books))
+        return Solution(signed_libraries, unsigned_libraries, scanned_books_per_library, scanned_books)
     
+
     def tweak_solution(self, solution, data):
         pass
     
     def hill_climbing(self, data):
-        solution = Solution.generateInitialSolution(data)
+        solution = self.generateInitialSolution(data)
 
         for i in range(100):
             new_solution = self.tweak_solution(solution, data)
 
-            # if new_solution.fitness_score() > solution.fitness_score():
-            #     solution = new_solution
+            if new_solution.fitness_score() > solution.fitness_score():
+                solution = new_solution
 
         return solution

@@ -96,12 +96,12 @@ class Solver:
         pass
     
     def hill_climbing(self, data):
-        solution = self.solve(data)
+        solution = Solution.generateInitialSolution(data)
 
         for i in range(100):
             new_solution = self.tweak_solution(solution, data)
 
-            if new_solution.fitness_score() > solution.fitness_score():
-                solution = new_solution
+            # if new_solution.fitness_score() > solution.fitness_score():
+            #     solution = new_solution
 
         return solution

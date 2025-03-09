@@ -7,5 +7,5 @@ data = parser.parse()
 # data.describe()
 
 solver = Solver()
-solution = solver.solve(data)
-# solution.export('./output/output.txt')
+solution = solver.hill_climbing(data)
+solution.export('./output/output.txt')

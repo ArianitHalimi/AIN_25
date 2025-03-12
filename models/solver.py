@@ -1,8 +1,6 @@
 import random
 from tqdm import tqdm
-from .parser import Parser
-import os
-from .solution import Solution
+from models.solution import Solution
 
 class Solver:
     def __init__(self):
@@ -90,7 +88,9 @@ class Solver:
                 scanned_books.update(available_books)
                 curr_time += library.signup_days
 
-        return Solution(signed_libraries, unsigned_libraries, scanned_books_per_library, scanned_books)
+        solution = Solution(signed_libraries, unsigned_libraries, scanned_books_per_library, scanned_books)
+        print("Solution score: ", solution.fitness_score(data.scores))
+        return solution
     
 
     def tweak_solution(self, solution, data):

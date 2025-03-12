@@ -1,13 +1,10 @@
-import random
-from tqdm import tqdm
-
 class Solution:
     signed_libraries = []
     unsigned_libraries = []
     scanned_books_per_library = {}
     scanned_books = set()
 
-    def __init__(self, signed_libs, unsigned_libs,scanned_books_per_library, scanned_books):
+    def __init__(self, signed_libs, unsigned_libs, scanned_books_per_library, scanned_books):
         self.signed_libraries = signed_libs
         self.unsigned_libraries = unsigned_libs
         self.scanned_books_per_library = scanned_books_per_library
@@ -32,6 +29,10 @@ class Solution:
             for library_id, books in self.scanned_books_per_library.items():
                 lofp.write(f"Library {library_id}: " + ", ".join(map(str, books)) + "\n")
             lofp.write("\nOverall scanned books: " + ", ".join(map(str, sorted(self.scanned_books))) + "\n")
-            
-    def fitness_score(self):
-        pass    
+
+    def fitness_score(self, scores):
+        score = 0
+        for library_id, books in self.scanned_books_per_library.items():
+            for book in books:
+                score += scores[book]
+        return score

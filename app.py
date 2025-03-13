@@ -1,10 +1,11 @@
 from models import Parser
-from models import Solution
+from models import Solver
 
-parser = Parser('./input/input.txt')
+parser = Parser('./input/d_tough_choices.txt')
 data = parser.parse()
 
-data.describe()
+# data.describe()
 
-solution = Solution('./output/output.txt')
-solution.solve(data)
+solver = Solver()
+solution = solver.generateInitialSolution(data)
+solution.export('./output/output.txt')

@@ -15,8 +15,7 @@ class InstanceData:
         self.book_libs = [[] for _ in range(num_books)]
         for i, lib in enumerate(libs):
             for book in lib.books:
-                self.book_libs[book].append(i)
-
+                self.book_libs[book.id].append(i)
 
     def describe(self):
         print('There are', self.num_books, "books", self.num_libs, "libraries", "and", self.num_days, "days for scanning")

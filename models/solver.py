@@ -89,7 +89,8 @@ class Solver:
                 curr_time += library.signup_days
 
         solution = Solution(signed_libraries, unsigned_libraries, scanned_books_per_library, scanned_books)
-        print("Solution score: ", solution.fitness_score(data.scores))
+        solution.calculate_fitness_score(data.scores)
+        print("Solution fitness score score: ", solution.fitness_score)
         return solution
     
 

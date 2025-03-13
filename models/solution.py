@@ -3,6 +3,7 @@ class Solution:
     unsigned_libraries = []
     scanned_books_per_library = {}
     scanned_books = set()
+    fitness_score = -1
 
     def __init__(self, signed_libs, unsigned_libs, scanned_books_per_library, scanned_books):
         self.signed_libraries = signed_libs
@@ -30,9 +31,9 @@ class Solution:
                 lofp.write(f"Library {library_id}: " + ", ".join(map(str, books)) + "\n")
             lofp.write("\nOverall scanned books: " + ", ".join(map(str, sorted(self.scanned_books))) + "\n")
 
-    def fitness_score(self, scores):
+
+    def calculate_fitness_score(self, scores):
         score = 0
-        for library_id, books in self.scanned_books_per_library.items():
-            for book in books:
-                score += scores[book]
-        return score
+        for book in self.scanned_books:
+            score += scores[book]
+        self.fitness_score = score

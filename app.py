@@ -7,12 +7,22 @@ solver = Solver()
 
 directory = os.listdir('input')
 
-print("---------- RANDOM SEARCH ----------")
+# print("---------- RANDOM SEARCH ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         best_solution_file = solver.random_search(data)
+#         print(best_solution_file[0], file)
+
+print("---------- HILL CLIMBING SIGNED & UNSIGNED SWAP ----------")
 for file in directory:
     if file.endswith('.txt'):
+        print(f'Computing ./input/{file}')
         parser = Parser(f'./input/{file}')
         data = parser.parse()
-        best_solution_file = solver.random_search(data)
-        print(best_solution_file[0], file)
+        solution = solver.hill_climbing_signed_unsigned(data)
+        # solution.export('./output/output.txt')
+        print(f"{solution.fitness_score:,}", file)
 
 # solution.export('./output/output.txt')

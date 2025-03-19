@@ -169,6 +169,7 @@ class Solver:
         max_books_per_day = data.libs[new_library].books_per_day
 
         # todo qiky kushti so mire
+        book_to_remove = None
         if int(len(current_books_in_new_library) / max_books_per_day) >= (data.num_days - new_library.signup_days):
             book_to_remove = random.choice(list(current_books_in_new_library))
             current_books_in_new_library.remove(book_to_remove)
@@ -186,6 +187,7 @@ class Solver:
         books_in_current_library.append(book_to_scan)
         solution.scanned_books.add(book_to_scan)
 
+        solution.calculate_delta_fitness(solution, data, book_to_move, book_to_remove)
         return solution
 
     def hill_climbing(self, data):

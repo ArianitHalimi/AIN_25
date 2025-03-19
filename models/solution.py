@@ -15,9 +15,9 @@ class Solution:
         with open(file_path, "w+") as ofp:
             ofp.write(f"{len(self.signed_libraries)}\n")
             for library in self.signed_libraries:
-                library_idx = int(library.split()[-1])
-                books = self.scanned_books_per_library.get(library_idx, [])
-                ofp.write(f"{library_idx} {len(books)}\n")
+                # library_idx = int(library.split()[-1])
+                books = self.scanned_books_per_library.get(library, [])
+                ofp.write(f"{library} {len(books)}\n")
                 ofp.write(" ".join(map(str, books)) + "\n")
 
         print(f"Processing complete! Output written to: {file_path}")

@@ -97,47 +97,43 @@ class Solver:
         return solution
 
     def tweak_solution(self, solution, data):
-        """
-        Tweaks the given solution by swapping a book between libraries where possible.
-
-        :param solution: The current solution object.
-        :param data: The instance data containing information about libraries and books.
-        :return: A new solution object with the tweak applied.
-        """
-        # Choose a random book that has been scanned
-        if not solution.scanned_books:
-            return solution  # No scanned books to tweak
-
         book_count = defaultdict(int)
+        unscanned_books_per_library = {}
 
-        # Iterate through each library and count occurrences of book IDs
         for library in data.libs:
-            unique_books = {book.id for book in library.books if library.id in solution.signed_libraries}
-            for book_id in unique_books:
-                book_count[book_id] += 1
+            if library.id in solution.signed_libraries:
+                unsigned_books = []
+                for book in library.books:
+                    book_count[book.id] += 1
+                    if book.id not in solution.scanned_books_per_library.get(library.id,
+                                                                             []) and book.id not in solution.scanned_books:
+                        unsigned_books.append(book.id)
+                if len(unsigned_books) > 0:
+                    unscanned_books_per_library[library.id] = unsigned_books
+
+        if len(unscanned_books_per_library) == 1:
+            print("Only 1 library with unscanned books was found")
+            return solution
 
         possible_books = [
             book_id for book_id, count in book_count.items()
             if count > 1 and book_id in solution.scanned_books
         ]
 
-        # todo filter book here
-        valid_books = [
-            # book_id for book_id in possible_books
-            # if any(
-            #     any(book.id not in solution.scanned_books for book in data.libs[scanning_library].books)
-            #     # Library has unscanned books
-            #     for scanning_library, books in solution.scanned_books_per_library.items()
-            #     # Find which library scanned this book
-            #     if book_id in books  # Ensure this book was scanned by this library
-            # )
-        ]
+        valid_books = set()
+
+        for library, unscanned_books in unscanned_books_per_library.items():
+            for book_id in possible_books:
+                for book in data.libs[library].books:
+                    if book.id == book_id:
+                        valid_books.add(book_id)
 
         if not valid_books:
+            print("No valid books were found")
             return solution  # No book meets the criteria, return unchanged
 
         # Get random book to swap
-        book_to_move = random.choice(valid_books)
+        book_to_move = random.choice(list(valid_books))
 
         # Identify which library is currently scanning this book
         current_library = None
@@ -146,17 +142,24 @@ class Solver:
                 current_library = lib_id
                 break
 
+        if unscanned_books_per_library.get(current_library) is None or len(
+                unscanned_books_per_library[current_library]) == 0:
+            return solution
+
         # Select other library with any un-scanned books to scan this book
-        new_library = random.choice([
+        possible_libraries = [
             lib for lib in data.book_libs[book_to_move]
             if lib != current_library and any(
                 library.id == lib and any(book.id not in solution.scanned_books for book in library.books)
-                for library in data.libs
+                for library in data.libs if library.id in solution.signed_libraries
             )
-        ])
+        ]
 
-        if new_library is None:
+        if len(possible_libraries) == 0:
+            print("No valid libraries were found")
             return solution
+
+        new_library = random.choice(possible_libraries)
 
         # Remove the book from the current library
         solution.scanned_books_per_library[current_library].remove(book_to_move)
@@ -168,9 +171,20 @@ class Solver:
         # Ensure feasibility: If new_library is at its limit, remove a book to make space
         max_books_per_day = data.libs[new_library].books_per_day
 
-        # todo qiky kushti so mire
+        days_before_sign_up = 0
+        found = False
+
+        for id in solution.signed_libraries:
+            if found:
+                break
+            days_before_sign_up += data.libs[id].signup_days
+            if id == new_library:
+                found = True
+
+        numOfDaysAvailable = data.num_days - days_before_sign_up
+
         book_to_remove = None
-        if int(len(current_books_in_new_library) / max_books_per_day) >= (data.num_days - new_library.signup_days):
+        if len(current_books_in_new_library) > numOfDaysAvailable * max_books_per_day:
             book_to_remove = random.choice(list(current_books_in_new_library))
             current_books_in_new_library.remove(book_to_remove)
             solution.scanned_books.remove(book_to_remove)
@@ -180,14 +194,15 @@ class Solver:
         solution.scanned_books.add(book_to_move)
 
         books_in_current_library = solution.scanned_books_per_library[current_library]
-        current_library_unscanned_books = [book for book in books_in_current_library if
-                                           book not in solution.scanned_books]
-        book_to_scan = random.choice(current_library_unscanned_books)
 
-        books_in_current_library.append(book_to_scan)
-        solution.scanned_books.add(book_to_scan)
+        new_scanned_book = random.choice(unscanned_books_per_library.get(current_library))
+        books_in_current_library.append(new_scanned_book)
+        solution.scanned_books.add(new_scanned_book)
 
-        solution.calculate_delta_fitness(solution, data, book_to_move, book_to_remove)
+        print(f'Fitness before tweaking: {solution.fitness_score}')
+        solution.calculate_delta_fitness(data, new_scanned_book, book_to_remove)
+        print(f'Fitness after tweaking: {solution.fitness_score}')
+
         return solution
 
     def hill_climbing(self, data):

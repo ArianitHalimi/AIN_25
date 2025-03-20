@@ -1,8 +1,7 @@
 import random
 from collections import defaultdict
 
-from tqdm import tqdm
-
+# from tqdm import tqdm
 from models.solution import Solution
 
 
@@ -73,7 +72,8 @@ class Solver:
         scanned_books = set()
         curr_time = 0
 
-        for library in tqdm(shuffled_libs):
+        # for library in tqdm(shuffled_libs): # If the visualisation is needed
+        for library in shuffled_libs:
             if curr_time + library.signup_days >= data.num_days:
                 unsigned_libraries.append(f"Library {library.id}")
                 continue
@@ -92,8 +92,9 @@ class Solver:
                 curr_time += library.signup_days
 
         solution = Solution(signed_libraries, unsigned_libraries, scanned_books_per_library, scanned_books)
+
         solution.calculate_fitness_score(data.scores)
-        print("Solution fitness score score: ", solution.fitness_score)
+
         return solution
 
     def tweak_solution(self, solution, data):
@@ -215,3 +216,16 @@ class Solver:
                 solution = new_solution
 
         return solution
+
+    def random_search(self, data, iterations=1000):
+        solution = self.generateInitialSolution(data)
+        fitness_score = solution.fitness_score
+
+        for i in range(iterations - 1):
+            new_solution = self.generateInitialSolution(data)
+
+            if new_solution.fitness_score > fitness_score:
+                solution = new_solution
+                fitness_score = new_solution.fitness_score
+
+        return (fitness_score, solution)

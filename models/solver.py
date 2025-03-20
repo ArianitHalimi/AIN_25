@@ -86,7 +86,7 @@ class Solver:
             )[:max_books_scanned]
 
             if available_books:
-                signed_libraries.append(library.id)  # .append(f"Library {library.id}")
+                signed_libraries.append(library.id)
                 scanned_books_per_library[library.id] = available_books
                 scanned_books.update(available_books)
                 curr_time += library.signup_days

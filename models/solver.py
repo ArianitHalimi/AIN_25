@@ -246,8 +246,10 @@ class Solver:
 
         unsigned_idx = random.randint(0, len(local_unsigned_libs) - 1)
 
-        signed_lib_id = self._extract_lib_id(local_signed_libs, signed_idx)
-        unsigned_lib_id = self._extract_lib_id(local_unsigned_libs, unsigned_idx)
+        # signed_lib_id = self._extract_lib_id(local_signed_libs, signed_idx)
+        # unsigned_lib_id = self._extract_lib_id(local_unsigned_libs, unsigned_idx)
+        signed_lib_id = local_signed_libs[signed_idx]
+        unsigned_lib_id = local_unsigned_libs[unsigned_idx]
 
         # Swap the libraries
         local_signed_libs[signed_idx] = f"Library {unsigned_lib_id}"
@@ -265,7 +267,8 @@ class Solver:
 
         # Process libraries before the swapped index
         for i in range(signed_idx):
-            lib_id = self._extract_lib_id(solution.signed_libraries, i)
+            # lib_id = self._extract_lib_id(solution.signed_libraries, i)
+            lib_id = solution.signed_libraries[i]
             library = lib_lookup.get(lib_id)
 
             curr_time += library.signup_days
@@ -282,7 +285,8 @@ class Solver:
         new_signed_libraries = local_signed_libs[:signed_idx]
 
         for i in range(signed_idx, len(local_signed_libs)):
-            lib_id = self._extract_lib_id(local_signed_libs, i)
+            # lib_id = self._extract_lib_id(local_signed_libs, i)
+            lib_id = local_signed_libs[i]
             library = lib_lookup.get(lib_id)
 
             if curr_time + library.signup_days >= data.num_days:

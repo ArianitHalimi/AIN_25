@@ -109,6 +109,77 @@ class Solver:
 
         return solution
     
+    def tweak_solution_1(self, solution, data):
+
+        library_ids = []
+        for lib in solution.signed_libraries:
+            lib_id = int(lib.split()[-1])
+            if lib_id < len(data.libs):
+                library_ids.append(lib_id)
+        
+        if len(library_ids) < 2:
+            return solution
+            
+        idx1 = random.randint(0, len(library_ids) - 1)
+        idx2 = random.randint(0, len(library_ids) - 1)
+        while idx1 == idx2:
+            idx2 = random.randint(0, len(library_ids) - 1)
+            
+        library_ids[idx1], library_ids[idx2] = library_ids[idx2], library_ids[idx1]
+        
+        ordered_libs = []
+        for lib_id in library_ids:
+            ordered_libs.append(data.libs[lib_id])
+        
+        all_lib_ids = set(range(len(data.libs)))
+        remaining_lib_ids = all_lib_ids - set(library_ids)
+        for lib_id in remaining_lib_ids:
+            ordered_libs.append(data.libs[lib_id])
+            
+        signed_libraries = []
+        unsigned_libraries = []
+        scanned_books_per_library = {}
+        scanned_books = set()
+        curr_time = 0
+
+        for library in ordered_libs:
+            if curr_time + library.signup_days >= data.num_days:
+                unsigned_libraries.append(f"Library {library.id}")
+                continue
+
+            time_left = data.num_days - (curr_time + library.signup_days)
+            max_books_scanned = time_left * library.books_per_day
+
+            available_books = sorted(
+                {book.id for book in library.books} - scanned_books, 
+                key=lambda b: -data.scores[b]
+            )[:max_books_scanned]
+
+            if available_books:
+                signed_libraries.append(f"Library {library.id}")
+                scanned_books_per_library[library.id] = available_books
+                scanned_books.update(available_books)
+                curr_time += library.signup_days
+
+        new_solution = Solution(signed_libraries, unsigned_libraries, scanned_books_per_library, scanned_books)
+        new_solution.calculate_fitness_score(data.scores)
+        
+        return new_solution
+    
+    def hill_climbing_1(self, data):
+        solution = self.generateInitialSolution(data)
+        current_fitness = solution.fitness_score
+        print("Current fitness score:", current_fitness)
+
+        for i in range(1000):
+            new_solution = self.tweak_solution_1(solution, data)
+            
+            if new_solution.fitness_score > current_fitness:
+                solution = new_solution
+                current_fitness = new_solution.fitness_score
+
+        return (current_fitness, solution)
+    
     def random_search(self, data, iterations = 1000):
         solution = self.generateInitialSolution(data)
         fitness_score = solution.fitness_score

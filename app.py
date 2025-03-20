@@ -1,7 +1,7 @@
 from models import Parser
 from models import Solver
 
-parser = Parser('./input/e_so_many_books.txt')
+parser = Parser('./input/UPFIEK.txt')
 data = parser.parse()
 
 # data.describe()

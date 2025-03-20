@@ -1,6 +1,8 @@
 import random
 # from tqdm import tqdm
 from models.solution import Solution
+from models.library import Library
+import os
 
 class Solver:
     def __init__(self):
@@ -166,7 +168,8 @@ class Solver:
         
         return new_solution
     
-    def hill_climbing_1(self, data):
+    def hill_climbing_1(self, data, file_name): 
+        Library._id_counter = 0
         solution = self.generateInitialSolution(data)
         current_fitness = solution.fitness_score
         print("Current fitness score:", current_fitness)
@@ -177,6 +180,11 @@ class Solver:
             if new_solution.fitness_score > current_fitness:
                 solution = new_solution
                 current_fitness = new_solution.fitness_score
+
+        os.makedirs("output/hill_climbing_1", exist_ok=True)
+        base_name = file_name.split('.')[0]
+        output_path = f"output/hill_climbing_1/{base_name}.txt"
+        solution.export(output_path)
 
         return (current_fitness, solution)
     

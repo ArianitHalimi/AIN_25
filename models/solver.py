@@ -81,8 +81,7 @@ class Solver:
             max_books_scanned = time_left * library.books_per_day
 
             available_books = sorted(
-                {book.id for book in library.books} - scanned_books,
-                key=lambda b: -data.scores[b],
+                {book.id for book in library.books} - scanned_books, key=lambda b: -data.scores[b]
             )[:max_books_scanned]
 
             if available_books:
@@ -91,12 +90,7 @@ class Solver:
                 scanned_books.update(available_books)
                 curr_time += library.signup_days
 
-        solution = Solution(
-            signed_libraries,
-            unsigned_libraries,
-            scanned_books_per_library,
-            scanned_books,
-        )
+        solution = Solution(signed_libraries, unsigned_libraries, scanned_books_per_library, scanned_books)
 
         solution.calculate_fitness_score(data.scores)
 
@@ -111,11 +105,8 @@ class Solver:
                 unsigned_books = []
                 for book in library.books:
                     book_count[book.id] += 1
-                    if (
-                        book.id
-                        not in solution.scanned_books_per_library.get(library.id, [])
-                        and book.id not in solution.scanned_books
-                    ):
+                    if book.id not in solution.scanned_books_per_library.get(library.id,
+                                                                             []) and book.id not in solution.scanned_books:
                         unsigned_books.append(book.id)
                 if len(unsigned_books) > 0:
                     unscanned_books_per_library[library.id] = unsigned_books
@@ -125,8 +116,7 @@ class Solver:
             return solution
 
         possible_books = [
-            book_id
-            for book_id, count in book_count.items()
+            book_id for book_id, count in book_count.items()
             if count > 1 and book_id in solution.scanned_books
         ]
 
@@ -152,22 +142,16 @@ class Solver:
                 current_library = lib_id
                 break
 
-        if (
-            unscanned_books_per_library.get(current_library) is None
-            or len(unscanned_books_per_library[current_library]) == 0
-        ):
+        if unscanned_books_per_library.get(current_library) is None or len(
+                unscanned_books_per_library[current_library]) == 0:
             return solution
 
         # Select other library with any un-scanned books to scan this book
         possible_libraries = [
-            lib
-            for lib in data.book_libs[book_to_move]
-            if lib != current_library
-            and any(
-                library.id == lib
-                and any(book.id not in solution.scanned_books for book in library.books)
-                for library in data.libs
-                if library.id in solution.signed_libraries
+            lib for lib in data.book_libs[book_to_move]
+            if lib != current_library and any(
+                library.id == lib and any(book.id not in solution.scanned_books for book in library.books)
+                for library in data.libs if library.id in solution.signed_libraries
             )
         ]
 
@@ -211,15 +195,13 @@ class Solver:
 
         books_in_current_library = solution.scanned_books_per_library[current_library]
 
-        new_scanned_book = random.choice(
-            unscanned_books_per_library.get(current_library)
-        )
+        new_scanned_book = random.choice(unscanned_books_per_library.get(current_library))
         books_in_current_library.append(new_scanned_book)
         solution.scanned_books.add(new_scanned_book)
 
-        print(f"Fitness before tweaking: {solution.fitness_score}")
+        print(f'Fitness before tweaking: {solution.fitness_score}')
         solution.calculate_delta_fitness(data, new_scanned_book, book_to_remove)
-        print(f"Fitness after tweaking: {solution.fitness_score}")
+        print(f'Fitness after tweaking: {solution.fitness_score}')
 
         return solution
 
@@ -236,11 +218,9 @@ class Solver:
 
     # region Hill Climbing Signed & Unsigned libs
     def _extract_lib_id(self, libraries, library_index):
-        return int(libraries[library_index][len("Library ") :])
+        return int(libraries[library_index][len("Library "):])
 
-    def tweak_solution_signed_unsigned(
-        self, solution, data, bias_type=None, bias_ratio=2 / 3
-    ):
+    def tweak_solution_signed_unsigned(self, solution, data, bias_type=None, bias_ratio=2/3):
         if not solution.signed_libraries or not solution.unsigned_libraries:
             return solution
 
@@ -294,9 +274,7 @@ class Solver:
             time_left = data.num_days - curr_time
             max_books_scanned = time_left * library.books_per_day
 
-            available_books = [
-                book.id for book in library.books if book.id not in scanned_books
-            ][:max_books_scanned]
+            available_books = [book.id for book in library.books if book.id not in scanned_books][:max_books_scanned]
 
             if available_books:
                 new_scanned_books_per_library[library.id] = available_books
@@ -318,9 +296,7 @@ class Solver:
             time_left = data.num_days - curr_time
             max_books_scanned = time_left * library.books_per_day
 
-            available_books = [
-                book.id for book in library.books if book.id not in scanned_books
-            ][:max_books_scanned]
+            available_books = [book.id for book in library.books if book.id not in scanned_books][:max_books_scanned]
 
             if available_books:
                 new_signed_libraries.append(f"Library {library.id}")
@@ -328,12 +304,7 @@ class Solver:
                 scanned_books.update(available_books)
 
         # Update solution
-        new_solution = Solution(
-            new_signed_libraries,
-            local_unsigned_libs,
-            new_scanned_books_per_library,
-            scanned_books,
-        )
+        new_solution = Solution(new_signed_libraries, local_unsigned_libs, new_scanned_books_per_library, scanned_books)
         new_solution.calculate_fitness_score(data.scores)
 
         return new_solution
@@ -350,10 +321,9 @@ class Solver:
                 solution = new_solution
 
         return solution
-
     # endregion
 
-    def random_search(self, data, iterations=1000):
+    def random_search(self, data, iterations = 1000):
         solution = self.generateInitialSolution(data)
         fitness_score = solution.fitness_score
 
@@ -366,7 +336,7 @@ class Solver:
 
         return (fitness_score, solution)
 
-    def tweak_solution_1(self, solution, data):
+    def tweak_solution_signed(self, solution, data):
 
         library_ids = [lib for lib in solution.signed_libraries if lib < len(data.libs)]
         
@@ -422,14 +392,14 @@ class Solver:
 
         return new_solution
 
-    def hill_climbing_1(self, data, file_name):
+    def hill_climbing_signed(self, data, file_name):
         Library._id_counter = 0
         solution = self.generateInitialSolution(data)
         current_fitness = solution.fitness_score
         print("Current fitness score:", current_fitness)
 
-        for i in range(1000):
-            new_solution = self.tweak_solution_1(solution, data)
+        for i in range(10):
+            new_solution = self.tweak_solution_signed(solution, data)
 
             if new_solution.fitness_score > current_fitness:
                 solution = new_solution

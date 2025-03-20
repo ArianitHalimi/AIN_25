@@ -20,8 +20,8 @@ for file in directory:
     if file.endswith('.txt'):
         parser = Parser(f'./input/{file}')
         data = parser.parse()
-        hill_climbing_solution_1 = solver.hill_climbing_1(data, file)
-        print(hill_climbing_solution_1[0], file)
+        hill_climbing_signed = solver.hill_climbing_signed(data, file)
+        print(hill_climbing_signed[0], file)
 
 print("---------- HILL CLIMBING SIGNED & UNSIGNED SWAP ----------")
 for file in directory:

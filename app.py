@@ -15,6 +15,14 @@ directory = os.listdir('input')
 #         best_solution_file = solver.random_search(data)
 #         print(best_solution_file[0], file)
 
+print("---------- HILL CLIMBING SWAP SIGNED ----------")
+for file in directory:
+    if file.endswith('.txt'):
+        parser = Parser(f'./input/{file}')
+        data = parser.parse()
+        hill_climbing_signed = solver.hill_climbing_signed(data, file)
+        print(hill_climbing_signed[0], file)
+
 print("---------- HILL CLIMBING SIGNED & UNSIGNED SWAP ----------")
 for file in directory:
     if file.endswith('.txt'):

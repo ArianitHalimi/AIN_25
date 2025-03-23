@@ -5,6 +5,7 @@ class InstanceData:
     scores = []
     libs = []
     book_libs = []
+    upper_bound = 0
 
     def __init__(self, num_books, num_libs, num_days, scores, libs):
         self.num_books = num_books
@@ -31,3 +32,17 @@ class InstanceData:
 
         for i,l in enumerate(self.book_libs):
             print(f'Book {i} Exists in Libraries:', ' and '.join(str(x) for x in l))
+            
+    def calculate_upper_bound(self):
+        """Calculates the sum of scores of all unique books across all libraries."""
+        unique_books = set()
+        
+        # Collect all unique book IDs
+        for lib in self.libs:
+            for book in lib.books:
+                unique_books.add(book.id)  
+
+        # Sum up their scores
+        upper_bound = sum(self.scores[book_id] for book_id in unique_books)
+        return upper_bound
+

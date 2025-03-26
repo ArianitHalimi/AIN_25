@@ -4,67 +4,17 @@ from models.library import Library
 import os
 # from tqdm import tqdm
 from models.solution import Solution
+import copy
+import random
+
 class Solver:
     def __init__(self):
         pass
 
-    # def solve(self, data):
-    # random.shuffle(data.libs)
-
-    # for library in tqdm(data.libs):
-    #     if self.curr_time + library.signup_days >= data.num_days:
-    #         self.unsigned_libraries.append(f"Library {library.id}")
-    #         continue
-
-    #     time_left = data.num_days - (self.curr_time + library.signup_days)
-    #     max_books_scanned = time_left * library.books_per_day
-
-    #     available_books = sorted(
-    #         set(library.books) - self.assigned_books, key=lambda b: -data.scores[b]
-    #     )[:max_books_scanned]
-
-    #     if available_books:
-    #         self.signed_libraries.append(f"Library {library.id}")
-    #         self.scanned_books[library.id] = available_books
-    #         self.assigned_books.update(available_books)
-    #         self.curr_time += library.signup_days
-
-    # all_books = set(range(data.num_books))
-    # scanned_books_list = sorted(self.assigned_books)
-    # not_scanned_books_list = sorted(all_books - self.assigned_books)
-
-    # os.makedirs(os.path.dirname(self.libraries_output_file_name), exist_ok=True)
-
-    # with open(self.output_file_name, "w+") as lofp:
-    #     lofp.write("Signed libraries: " + ", ".join(self.signed_libraries) + "\n")
-    #     lofp.write("Unsigned libraries: " + ", ".join(self.unsigned_libraries) + "\n")
-    #     lofp.write("\nScanned books per library:\n")
-    #     for library_id, books in self.scanned_books.items():
-    #         lofp.write(f"Library {library_id}: " + ", ".join(map(str, books)) + "\n")
-    #     lofp.write("\nOverall scanned books: " + ", ".join(map(str, scanned_books_list)) + "\n")
-    #     lofp.write("Not scanned books: " + ", ".join(map(str, not_scanned_books_list)) + "\n")
-
-    # print(f"Signed libraries: {len(self.signed_libraries)}")
-    # print(f"Unsigned libraries: {len(self.unsigned_libraries)}")
-    # print(f"Scanned books: {len(scanned_books_list)}")
-    # print(f"Not scanned books: {len(not_scanned_books_list)}")
-
-    # with open(f"{self.libraries_output_file_name}", "w+") as ofp:
-    #     ofp.write(f"{len(self.signed_libraries)}\n")
-    #     for library in self.signed_libraries:
-    #         library_idx = int(library.split()[-1])
-    #         books = self.scanned_books.get(library_idx, [])
-    #         ofp.write(f"{library_idx} {len(books)}\n")
-    #         ofp.write(" ".join(map(str, books)) + "\n")
-
-    # print(f"Processing complete! Output written to: {self.output_file_name}")
-    # print(f"Libraries summary saved to: {self.libraries_output_file_name}")
-
-    def generateInitialSolution(self, data):
-
+    def generate_initial_solution(self, data):
         shuffled_libs = data.libs.copy()
         random.shuffle(shuffled_libs)
-
+ 
         signed_libraries = []
         unsigned_libraries = []
         scanned_books_per_library = {}
@@ -96,7 +46,7 @@ class Solver:
 
         return solution
 
-    def tweak_solution(self, solution, data):
+    def tweak_solution_swap_signed(self, solution, data):
         book_count = defaultdict(int)
         unscanned_books_per_library = {}
 
@@ -199,28 +149,30 @@ class Solver:
         books_in_current_library.append(new_scanned_book)
         solution.scanned_books.add(new_scanned_book)
 
-        print(f'Fitness before tweaking: {solution.fitness_score}')
         solution.calculate_delta_fitness(data, new_scanned_book, book_to_remove)
-        print(f'Fitness after tweaking: {solution.fitness_score}')
 
         return solution
 
-    def hill_climbing(self, data):
-        solution = self.generateInitialSolution(data)
-
-        for i in range(100):
-            new_solution = self.tweak_solution(solution, data)
+    def hill_climbing_swap_signed(self, data, iterations = 1000):
+        solution = self.generate_initial_solution(data)
+        # um doket init duhet me kan copy tani qka bohet shum copied 
+        # jo, kan than qe tweak osht inplace, dmth duhet me ju dergu copy
+        # po a , dam memory leak 
+        for i in range(iterations):
+            solution_clone = copy.deepcopy(solution) #HOW??
+            # improt copy lib koka pa build in prit
+            new_solution = self.tweak_solution_swap_signed(solution_clone, data)
 
             if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
 
-        return solution.fitness_score, solution
+        return (solution.fitness_score, solution)
 
     # region Hill Climbing Signed & Unsigned libs
     def _extract_lib_id(self, libraries, library_index):
         return int(libraries[library_index][len("Library "):])
 
-    def tweak_solution_signed_unsigned(self, solution, data, bias_type=None, bias_ratio=2/3):
+    def tweak_solution_swap_signed_with_unsigned(self, solution, data, bias_type=None, bias_ratio=2/3):
         if not solution.signed_libraries or not solution.unsigned_libraries:
             return solution
 
@@ -309,35 +261,31 @@ class Solver:
 
         return new_solution
 
-    def hill_climbing_signed_unsigned(self, data, iterations=1000):
-        solution = self.generateInitialSolution(data)
-
+    def hill_climbing_swap_signed_with_unsigned(self, data, iterations=1000):
+        solution = self.generate_initial_solution(data)
+        
         for i in range(iterations - 1):
-            new_solution = self.tweak_solution_signed_unsigned(solution, data)
+            new_solution = self.tweak_solution_swap_signed_with_unsigned(solution, data)
             # new_solution = self.tweak_solution_signed_unsigned(solution, data, bias_type="favor_second_half")
             # new_solution = self.tweak_solution_signed_unsigned(solution, data, bias_type="favor_first_half", bias_ratio=3/4)
 
             if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
 
-        return solution
-    # endregion
+        return (solution.fitness_score, solution)
 
     def random_search(self, data, iterations = 1000):
-        solution = self.generateInitialSolution(data)
-        fitness_score = solution.fitness_score
+        solution = self.generate_initial_solution(data)
 
         for i in range(iterations - 1):
-            new_solution = self.generateInitialSolution(data)
+            new_solution = self.generate_initial_solution(data)
 
-            if new_solution.fitness_score > fitness_score:
+            if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
-                fitness_score = new_solution.fitness_score
 
-        return (fitness_score, solution)
+        return (solution.fitness_score, solution)
 
-    def tweak_solution_signed(self, solution, data):
-
+    def tweak_solution_swap_same_books(self, solution, data):
         library_ids = [lib for lib in solution.signed_libraries if lib < len(data.libs)]
         
         if len(library_ids) < 2:
@@ -392,22 +340,34 @@ class Solver:
 
         return new_solution
 
-    def hill_climbing_signed(self, data, file_name):
+    def hill_climbing_swap_same_books(self, data, iterations = 1000):
         Library._id_counter = 0
-        solution = self.generateInitialSolution(data)
-        current_fitness = solution.fitness_score
-        print("Current fitness score:", current_fitness)
+        solution = self.generate_initial_solution(data)
 
-        for i in range(10):
-            new_solution = self.tweak_solution_signed(solution, data)
+        for i in range(iterations):
+            new_solution = self.tweak_solution_swap_same_books(solution, data)
 
-            if new_solution.fitness_score > current_fitness:
+            if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
-                current_fitness = new_solution.fitness_score
+    
+        return (solution.fitness_score, solution)
 
-        os.makedirs("output/hill_climbing_1", exist_ok=True)
-        base_name = file_name.split(".")[0]
-        output_path = f"output/hill_climbing_1/{base_name}.txt"
-        solution.export(output_path)
+    def hill_climbing_combined(self, data, iterations = 1000):
+        solution = self.generate_initial_solution()
 
-        return (current_fitness, solution)
+        list_of_climbs = [
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_same_books,
+            self.tweak_solution_swap_signed,
+        ]
+        
+        for _ in range(iterations - 1):
+            target_climb = random.choice(list_of_climbs)
+
+            solution_copy = copy.deepcopy(solution)
+            new_solution = target_climb(solution_copy, data) 
+
+            if (new_solution[0] > solution.fitness_score):
+                solution = new_solution
+
+        return (solution.fitness_score, solution)

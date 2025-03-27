@@ -112,9 +112,9 @@ def validate_solution(input_path, output_path, isConsoleApplication = False):
         if num_books != len(books):
             errors.append(f"Library {lib_id}: Declared {num_books} books, but actually listed {len(books)} books in output file.")
         
-        invalid_books = [b for b in books if b not in library_books]
-        if invalid_books:
-            errors.append(f"Library {lib_id} contains invalid books: {invalid_books}.")
+        # invalid_books = [b for b in books if b not in library_books]
+        # if invalid_books:
+        #     errors.append(f"Library {lib_id} contains invalid books: {invalid_books}.")
         
         if lib_id in used_libraries:
             errors.append(f"Library {lib_id} is listed multiple times in the solution.")

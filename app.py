@@ -38,6 +38,18 @@ directory = os.listdir('input')
 
 # solution.export('./output/output.txt')
 
+# print("---------- HILL CLIMBING SWAP LAST BOOK ----------")
+# for file in directory:
+#     if file.endswith('f_libraries_of_the_world.txt'):
+#         print(f'Computing ./input/{file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solution = solver.hill_climbing_swap_last_book(data)[1]
+#         # solution.export(f'./output/{file}')
+#         print(f"{solution.fitness_score:,}", file)
+#
+# solution.export('./output/output.txt')
+
 # files = ['f_libraries_of_the_world.txt','d_tough_choices.txt']
 for file in directory:
     if file.endswith('.txt'):
@@ -48,8 +60,6 @@ for file in directory:
         print(solution)
 
 
-
-
 # results = []
 # for file in directory:
 #     if file.endswith('.txt'):
@@ -58,7 +68,7 @@ for file in directory:
 #         data = parser.parse()
 #         solution = solver.hill_climbing_combined(data)
 #         # solution.export('./output/output.txt')
-      
+
 
 # # print("Best Solution:")
 # # results.sort(reverse=True)
@@ -94,4 +104,3 @@ for file in directory:
 #         # Calculate upper bound
 #         upper_bound = data.calculate_upper_bound()
 #         print(f"Upper Bound (Sum of Scores of Unique Books) for {file}: {upper_bound}")
-

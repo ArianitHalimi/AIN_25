@@ -398,9 +398,8 @@ class Solver:
         current_fitness = solution.fitness_score
         print("Current fitness score:", current_fitness)
 
-        for i in range(10):
+        for i in range(1000):
             new_solution = self.tweak_solution_signed(solution, data)
-
             if new_solution.fitness_score > current_fitness:
                 solution = new_solution
                 current_fitness = new_solution.fitness_score

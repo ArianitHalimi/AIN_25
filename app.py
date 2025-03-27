@@ -30,7 +30,7 @@ for file in directory:
         parser = Parser(f'./input/{file}')
         data = parser.parse()
         solution = solver.hill_climbing_signed_unsigned(data)
-        # solution.export('./output/output.txt')
+        solution.export('./output/output.txt')
         print(f"{solution.fitness_score:,}", file)
 
 # solution.export('./output/output.txt')

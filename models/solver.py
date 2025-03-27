@@ -24,7 +24,7 @@ class Solver:
         # for library in tqdm(shuffled_libs): # If the visualisation is needed
         for library in shuffled_libs:
             if curr_time + library.signup_days >= data.num_days:
-                unsigned_libraries.append(f"Library {library.id}")
+                unsigned_libraries.append(library.id)
                 continue
 
             time_left = data.num_days - (curr_time + library.signup_days)
@@ -62,7 +62,7 @@ class Solver:
                     unscanned_books_per_library[library.id] = unsigned_books
 
         if len(unscanned_books_per_library) == 1:
-            print("Only 1 library with unscanned books was found")
+            # print("Only 1 library with unscanned books was found")
             return solution
 
         possible_books = [
@@ -79,7 +79,7 @@ class Solver:
                         valid_books.add(book_id)
 
         if not valid_books:
-            print("No valid books were found")
+            # print("No valid books were found")
             return solution  # No book meets the criteria, return unchanged
 
         # Get random book to swap
@@ -155,14 +155,9 @@ class Solver:
 
     def hill_climbing_swap_signed(self, data, iterations = 1000):
         solution = self.generate_initial_solution(data)
-        # um doket init duhet me kan copy tani qka bohet shum copied 
-        # jo, kan than qe tweak osht inplace, dmth duhet me ju dergu copy
-        # po a , dam memory leak 
         for i in range(iterations):
-            solution_clone = copy.deepcopy(solution) #HOW??
-            # improt copy lib koka pa build in prit
+            solution_clone = copy.deepcopy(solution)
             new_solution = self.tweak_solution_swap_signed(solution_clone, data)
-
             if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
 
@@ -203,9 +198,8 @@ class Solver:
         unsigned_lib_id = local_unsigned_libs[unsigned_idx]
 
         # Swap the libraries
-        local_signed_libs[signed_idx] = f"Library {unsigned_lib_id}"
-        local_unsigned_libs[unsigned_idx] = f"Library {signed_lib_id}"
-
+        local_signed_libs[signed_idx] = unsigned_lib_id
+        local_unsigned_libs[unsigned_idx] = signed_lib_id
         # print(f"swapped_signed_lib={unsigned_lib_id}")
         # print(f"swapped_unsigned_lib={unsigned_lib_id}")
 
@@ -241,7 +235,7 @@ class Solver:
             library = lib_lookup.get(lib_id)
 
             if curr_time + library.signup_days >= data.num_days:
-                solution.unsigned_libraries.append(f"Library {library.id}")
+                solution.unsigned_libraries.append(library.id)
                 continue
 
             curr_time += library.signup_days
@@ -251,7 +245,7 @@ class Solver:
             available_books = [book.id for book in library.books if book.id not in scanned_books][:max_books_scanned]
 
             if available_books:
-                new_signed_libraries.append(f"Library {library.id}")
+                new_signed_libraries.append(library.id)  # Not f"Library {library.id}"
                 new_scanned_books_per_library[library.id] = available_books
                 scanned_books.update(available_books)
 
@@ -353,7 +347,7 @@ class Solver:
         return (solution.fitness_score, solution)
 
     def hill_climbing_combined(self, data, iterations = 1000):
-        solution = self.generate_initial_solution()
+        solution = self.generate_initial_solution(data)
 
         list_of_climbs = [
             self.tweak_solution_swap_signed_with_unsigned,
@@ -361,13 +355,14 @@ class Solver:
             self.tweak_solution_swap_signed,
         ]
         
-        for _ in range(iterations - 1):
+        for i in range(iterations - 1):
+            # if i % 100 == 0:
+            #     print('i',i)
             target_climb = random.choice(list_of_climbs)
-
             solution_copy = copy.deepcopy(solution)
             new_solution = target_climb(solution_copy, data) 
-
-            if (new_solution[0] > solution.fitness_score):
+            
+            if (new_solution.fitness_score > solution.fitness_score):
                 solution = new_solution
 
         return (solution.fitness_score, solution)

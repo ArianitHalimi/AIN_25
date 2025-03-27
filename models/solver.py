@@ -371,3 +371,77 @@ class Solver:
                 solution = new_solution
 
         return (solution.fitness_score, solution)
+
+    def tweak_solution_swap_last_book(self, solution, data):
+        if not solution.scanned_books_per_library or not solution.unsigned_libraries:
+            return solution  # No scanned or unsigned libraries, return unchanged solution
+
+        # Pick a random library that has scanned books
+        chosen_lib_id = random.choice(list(solution.scanned_books_per_library.keys()))
+        scanned_books = solution.scanned_books_per_library[chosen_lib_id]
+
+        if not scanned_books:
+            return solution  # Safety check, shouldn't happen
+
+        # Get the last scanned book from this library
+        last_scanned_book = scanned_books[-1]  # Last book in the list
+
+        library_dict = {f"Library {lib.id}": lib for lib in data.libs}
+
+        best_book = None
+        best_score = -1
+
+        for unsigned_lib in solution.unsigned_libraries:
+            library = library_dict[unsigned_lib]  # O(1) dictionary lookup
+
+            # Find the first unscanned book from this library
+            for book in library.books:
+                if book.id not in solution.scanned_books:  # O(1) lookup in set
+                    if data.scores[book.id] > best_score:  # Only store the best
+                        best_book = book.id
+                        best_score = data.scores[book.id]
+                    break  # Stop after the first valid book
+
+        # Assign the best book found (or None if none exist)
+        first_unscanned_book = best_book
+
+        if first_unscanned_book is None:
+            return solution  # No available unscanned books
+
+        # Create new scanned books mapping (deep copy)
+        new_scanned_books_per_library = {
+            lib_id: books.copy() for lib_id, books in solution.scanned_books_per_library.items()
+        }
+
+        # Swap the books
+        new_scanned_books_per_library[chosen_lib_id].remove(last_scanned_book)
+        new_scanned_books_per_library[chosen_lib_id].append(first_unscanned_book)
+
+        # Update the overall scanned books set
+        new_scanned_books = solution.scanned_books.copy()
+        new_scanned_books.remove(last_scanned_book)
+        new_scanned_books.add(first_unscanned_book)
+
+        # Create the new solution
+        new_solution = Solution(
+            signed_libs=solution.signed_libraries.copy(),
+            unsigned_libs=solution.unsigned_libraries.copy(),
+            scanned_books_per_library=new_scanned_books_per_library,
+            scanned_books=new_scanned_books
+        )
+
+        # Recalculate fitness score
+        new_solution.calculate_fitness_score(data.scores)
+
+        return new_solution
+
+    def hill_climbing_swap_last_book(self, data, iterations=1000):
+        solution = self.generate_initial_solution(data)
+
+        for i in range(iterations - 1):
+            new_solution = self.tweak_solution_swap_last_book(solution, data)
+
+            if new_solution.fitness_score > solution.fitness_score:
+                solution = new_solution
+
+        return (solution.fitness_score, solution)

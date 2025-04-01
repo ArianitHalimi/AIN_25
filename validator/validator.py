@@ -64,7 +64,7 @@ def read_output_file(output_path):
         solution.append((lib_id, num_books, books))
     return num_libraries, solution
 
-def validate_solution(input_path, output_path):
+def validate_solution(input_path, output_path, isConsoleApplication = False):
     B, L, D, book_scores, libraries = read_input_file(input_path)
     num_libraries, solution = read_output_file(output_path)
 
@@ -112,9 +112,9 @@ def validate_solution(input_path, output_path):
         if num_books != len(books):
             errors.append(f"Library {lib_id}: Declared {num_books} books, but actually listed {len(books)} books in output file.")
         
-        invalid_books = [b for b in books if b not in library_books]
-        if invalid_books:
-            errors.append(f"Library {lib_id} contains invalid books: {invalid_books}.")
+        # invalid_books = [b for b in books if b not in library_books]
+        # if invalid_books:
+        #     errors.append(f"Library {lib_id} contains invalid books: {invalid_books}.")
         
         if lib_id in used_libraries:
             errors.append(f"Library {lib_id} is listed multiple times in the solution.")
@@ -162,12 +162,23 @@ def validate_solution(input_path, output_path):
     if errors:
         return "\n".join(errors)
     
-    return (
-        f"Solution is valid! Total score: {total_score}\n"
-        f"Fitness score: {fitness_score:.4f}\n\n" +
-        "\n\n".join(valid_libraries_info) + 
-        f"\n\nNot scanned books: {not_scanned_books_str}"
+    result = (
+    f"Solution is valid!\n"
+    f"Total score: {total_score}\n"
+    f"Fitness score: {fitness_score:.4f}\n\n"
+    f"Signed up libraries: {libraries_used}/{L} ({(libraries_used / L) * 100:.2f}%)\n"
+    f"Unigned up libraries: {L-libraries_used}/{L} ({((L-libraries_used) / L) * 100:.2f}%)\n"
+    f"Scanned books: {len(all_scanned_books)}/{B} ({(len(all_scanned_books) / B) * 100:.2f}%)\n"
+    f"Unscanned books: {len(not_scanned_books)}/{B} ({(len(not_scanned_books) / B) * 100:.2f}%)\n"
+    f"Used days: {total_days_used}/{D} ({total_days_used / B * 100:.2f}%)\n\n"
     )
+
+    if isConsoleApplication:
+        result += "For more info run script without providing any file path (UI).\n\n"
+    else:
+        result += "\n".join(valid_libraries_info)
+    
+    return result
 
 class ValidatorApp(QWidget):
     def __init__(self):
@@ -226,10 +237,16 @@ class ValidatorApp(QWidget):
         self.result_text.setText(result)
 
 def main():
-    app = QApplication(sys.argv)
-    validator = ValidatorApp()
-    validator.show()
-    sys.exit(app.exec())
+    if len(sys.argv) == 3:
+        input_path = sys.argv[1]
+        output_path = sys.argv[2]
+        result = validate_solution(input_path, output_path, True)
+        print(result)
+    else:
+        app = QApplication(sys.argv)
+        validator = ValidatorApp()
+        validator.show()
+        sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()

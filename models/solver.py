@@ -1,5 +1,6 @@
 import random
 from collections import defaultdict
+import time
 from models.library import Library
 import os
 # from tqdm import tqdm
@@ -88,6 +89,32 @@ class Solver:
         new_solution.calculate_fitness_score(data.scores)
         
         return new_solution
+    
+    def hill_climbing_with_crossover(self, initial_solution, data):
+        current_solution = initial_solution
+        max_iterations = 100 
+        convergence_threshold = 0.01
+        last_fitness = current_solution.fitness_score
+
+        start_time = time.time()
+
+        for iteration in range(max_iterations):
+            if iteration % 10 == 0:
+                print(f"Iteration {iteration + 1}, Fitness: {current_solution.fitness_score}")
+
+            neighbor_solution = self.crossover(current_solution, data)
+
+            if abs(neighbor_solution.fitness_score - last_fitness) < convergence_threshold:
+                print(f"Converged with fitness score: {neighbor_solution.fitness_score}")
+                break  
+            current_solution = neighbor_solution
+            last_fitness = neighbor_solution.fitness_score
+
+        end_time = time.time()
+        print(f"Total Time: {end_time - start_time:.2f} seconds")
+
+        return current_solution
+
     
     def tweak_solution_swap_signed(self, solution, data):
         book_count = defaultdict(int)

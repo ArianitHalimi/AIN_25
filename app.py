@@ -52,13 +52,13 @@ directory = os.listdir('input')
 # solution.export('./output/output.txt')
 
 # files = ['f_libraries_of_the_world.txt','d_tough_choices.txt']
-# for file in directory:
-#     if file.endswith('.txt'):
-#         print(f'Computing ./input/{file}')
-#         parser = Parser(f'./input/{file}')
-#         data = parser.parse()
-#         solution = solver.hill_climbing_combined(data)
-#         print(solution)
+for file in directory:
+    if file.endswith('.txt'):
+        print(f'Computing ./input/{file}')
+        parser = Parser(f'./input/{file}')
+        data = parser.parse()
+        solution = solver.hill_climbing_combined(data)
+        print(solution)
 
 
 # results = []

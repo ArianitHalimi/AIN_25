@@ -52,13 +52,13 @@ directory = os.listdir('input')
 # solution.export('./output/output.txt')
 
 # files = ['f_libraries_of_the_world.txt','d_tough_choices.txt']
-for file in directory:
-    if file.endswith('.txt'):
-        print(f'Computing ./input/{file}')
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
-        solution = solver.hill_climbing_combined(data)
-        print(solution)
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Computing ./input/{file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solution = solver.hill_climbing_combined(data)
+#         print(solution)
 
 
 # results = []
@@ -129,3 +129,13 @@ for file in directory:
 #         if elapsed_time > timeout_duration:
 #             print(f"Timeout reached for {file}, stopping processing.")
 #             break  # Stop processing further files if timeout is exceeded
+
+for file in directory:
+    if file.endswith('.txt'):
+        parser = Parser(f'./input/{file}')
+        data = parser.parse()
+        score, solution = solver.hill_climbing_with_random_restarts(data, total_iterations=1000)
+        
+        solution.export(f'./output/{file}')
+        print(f'Final score: {score:,}')
+        print(f'Solution exported to ./output/{file}')

@@ -417,6 +417,7 @@ class Solver:
             self.tweak_solution_swap_signed_with_unsigned,
             self.tweak_solution_swap_same_books,
             self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_last_book
         ]
         
         for i in range(iterations - 1):
@@ -445,7 +446,8 @@ class Solver:
         # Get the last scanned book from this library
         last_scanned_book = scanned_books[-1]  # Last book in the list
 
-        library_dict = {f"Library {lib.id}": lib for lib in data.libs}
+        # library_dict = {f"Library {lib.id}": lib for lib in data.libs}
+        library_dict = {lib.id: lib for lib in data.libs}
 
         best_book = None
         best_score = -1
@@ -504,3 +506,47 @@ class Solver:
                 solution = new_solution
 
         return (solution.fitness_score, solution)
+    
+    def hill_climbing_with_random_restarts(self, data, total_iterations=1000, T=None):
+        if T is None:
+            T = [50, 100, 200, 300, 400]  # Default time distribution
+        
+        # Initialize solutions
+        current_solution = self.generate_initial_solution(data)
+        best_solution = copy.deepcopy(current_solution)
+        used_iterations = 0
+        
+        # Available tweak functions
+        tweak_functions = [
+            self.tweak_solution_swap_signed_with_unsigned,
+              self.tweak_solution_swap_signed_with_unsigned,
+              self.tweak_solution_swap_last_book
+        ]
+        
+        while used_iterations < total_iterations:
+            # Select random time interval from T
+            remaining = total_iterations - used_iterations
+            if remaining <= 0:
+                break
+            t = min(random.choice(T), remaining)
+            
+            # Inner hill-climbing loop
+            for _ in range(t):
+                # Select random tweak function
+                tweak_fn = random.choice(tweak_functions)
+                new_solution = tweak_fn(copy.deepcopy(current_solution), data)
+                
+                if new_solution.fitness_score > current_solution.fitness_score:
+                    current_solution = new_solution
+                
+                used_iterations += 1
+                if used_iterations >= total_iterations:
+                    break
+            
+            # Update best solution and potentially reset
+            if current_solution.fitness_score > best_solution.fitness_score:
+                best_solution = copy.deepcopy(current_solution)
+                # Random restart
+                current_solution = self.generate_initial_solution(data)
+        
+        return best_solution.fitness_score, best_solution 

@@ -3,6 +3,7 @@ from models import Solver
 
 
 import os
+import time
 # import tkinter as tk
 # from tkinter import messagebox
 
@@ -107,4 +108,24 @@ for file in directory:
 
 
 # print("---------- Hill-Climbing Swap Same Books with Crossover----------")
+# timeout_duration = 30 * 60
 
+# for file in directory:
+
+#     if file.endswith('.txt'):
+#         start_time = time.time()
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solver = Solver()
+#         initial_solution = solver.generateInitialSolution(data)
+#         optimized_solution = solver.hill_climbing_with_crossover(initial_solution, data)
+#         # optimized_solution.export('./output/output.txt')
+#         end_time = time.time()
+#         elapsed_time = end_time - start_time
+
+#         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+#         print(f"Time taken for {file}: {elapsed_time:.2f} seconds")
+
+#         if elapsed_time > timeout_duration:
+#             print(f"Timeout reached for {file}, stopping processing.")
+#             break  # Stop processing further files if timeout is exceeded

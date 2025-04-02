@@ -52,13 +52,13 @@ directory = os.listdir('input')
 # solution.export('./output/output.txt')
 
 # files = ['f_libraries_of_the_world.txt','d_tough_choices.txt']
-for file in directory:
-    if file.endswith('.txt'):
-        print(f'Computing ./input/{file}')
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
-        solution = solver.hill_climbing_combined(data)
-        print(solution)
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Computing ./input/{file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solution = solver.hill_climbing_combined(data)
+#         print(solution)
 
 
 # results = []
@@ -117,7 +117,7 @@ for file in directory:
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         solver = Solver()
-#         initial_solution = solver.generateInitialSolution(data)
+#         initial_solution = solver.generate_initial_solution(data)
 #         optimized_solution = solver.hill_climbing_with_crossover(initial_solution, data)
 #         # optimized_solution.export('./output/output.txt')
 #         end_time = time.time()

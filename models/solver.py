@@ -49,14 +49,12 @@ class Solver:
 
     def crossover(self, solution, data):
         """Performs crossover by shuffling library order and swapping books accordingly."""
-        new_solution = copy.deepcopy(solution)  # Ensure we don't modify the original solution
+        new_solution = copy.deepcopy(solution) 
 
-        # Step 1: Shuffle the library indices instead of library IDs
         old_order = new_solution.signed_libraries[:]
         library_indices = list(range(len(data.libs)))
         random.shuffle(library_indices)
 
-        # Step 2: Reassign books based on the new shuffled order
         new_scanned_books_per_library = {}
 
         for new_idx, new_lib_idx in enumerate(library_indices):
@@ -71,7 +69,6 @@ class Solver:
                 continue
 
             if old_lib_id in new_solution.scanned_books_per_library:
-                # Take books from the old library and move them to the new library position
                 books_to_move = new_solution.scanned_books_per_library[old_lib_id]
 
                 existing_books_in_new_lib = {book.id for book in data.libs[new_lib_id].books}
@@ -84,8 +81,6 @@ class Solver:
                 new_scanned_books_per_library[new_lib_id] = valid_books
 
         new_solution.scanned_books_per_library = new_scanned_books_per_library
-
-        # Step 3: Recalculate fitness after swapping
         new_solution.calculate_fitness_score(data.scores)
         
         return new_solution
@@ -115,7 +110,6 @@ class Solver:
 
         return current_solution
 
-    
     def tweak_solution_swap_signed(self, solution, data):
         book_count = defaultdict(int)
         unscanned_books_per_library = {}

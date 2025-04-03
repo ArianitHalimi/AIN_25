@@ -129,3 +129,16 @@ for file in directory:
 #         if elapsed_time > timeout_duration:
 #             print(f"Timeout reached for {file}, stopping processing.")
 #             break  # Stop processing further files if timeout is exceeded
+# print("---------- ITERATED LOCAL SEARCH WITH RANDOM RESTARTS ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Computing ./input/{file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         result = solver.iterated_local_search(data, time_limit=300, max_iterations=1000)
+#         print(f"Final score for {file}: {result[0]:,}")
+#         output_dir = 'output/ils_random_restarts'
+#         os.makedirs(output_dir, exist_ok=True)
+#         output_file = os.path.join(output_dir, file)
+#         result[1].export(output_file)
+#         print("----------------------")

@@ -1,7 +1,7 @@
 import random
 import sys
 
-sys.path.append('../models')
+sys.path.append('./models')
 from book import Book
 
 class Library:
@@ -59,6 +59,7 @@ def create_operator(libraries, schedule):
     if not selected_library.books:
         return schedule, False
     selected_book = random.choice(selected_library.books)
+    print(selected_book)
 
     schedule.append(selected_library)
 
@@ -80,7 +81,7 @@ def load_data(filename):
         line_index += 2
     return libraries, B, D
 
-libraries, total_books, days = load_data("../input/UPFIEK.txt")
+libraries, total_books, days = load_data("./input/UPFIEK.txt")
 schedule = []
 
 schedule, success = create_operator(libraries, schedule)

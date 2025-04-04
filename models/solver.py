@@ -7,6 +7,7 @@ import os
 from models.solution import Solution
 import copy
 import random
+import math
 
 class Solver:
     def __init__(self):
@@ -417,6 +418,7 @@ class Solver:
             self.tweak_solution_swap_signed_with_unsigned,
             self.tweak_solution_swap_same_books,
             self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_last_book
         ]
 
         for i in range(iterations - 1):
@@ -445,7 +447,8 @@ class Solver:
         # Get the last scanned book from this library
         last_scanned_book = scanned_books[-1]  # Last book in the list
 
-        library_dict = {f"Library {lib.id}": lib for lib in data.libs}
+        # library_dict = {f"Library {lib.id}": lib for lib in data.libs}
+        library_dict = {lib.id: lib for lib in data.libs}
 
         best_book = None
         best_score = -1
@@ -504,6 +507,7 @@ class Solver:
                 solution = new_solution
 
         return (solution.fitness_score, solution)
+
 
     def iterated_local_search(self, data, time_limit=300, max_iterations=1000):
         """
@@ -639,3 +643,93 @@ class Solver:
         rebuilt_solution.calculate_fitness_score(data.scores)
         
         return rebuilt_solution
+
+    def max_possible_score(self, data):
+
+        return sum(book.score for book in data.books.values())
+
+    def hill_climbing_with_random_restarts(self, data, total_time_ms=1000):
+    # Lightweight solution representation
+        def create_light_solution(solution):
+            return {
+                "signed": list(solution.signed_libraries),
+                "books": dict(solution.scanned_books_per_library),
+                "score": solution.fitness_score
+            }
+
+        # Initialize
+        current = create_light_solution(self.generate_initial_solution(data))
+        best = current.copy()
+        tweak_functions = [
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_last_book
+        ]
+        
+        # Adaptive parameters
+        tweak_weights = [1.0] * 3  # Initial weights for 3 tweaks
+        tweak_success = [0] * 3
+        temperature = 1000  # Controls solution acceptance
+        stagnation = 0      # Iterations since last improvement
+        
+        # Time management
+        start_time = time.time()
+        time_distribution = [100, 200, 300, 400, 500]  # ms - possible time intervals for each restart
+
+        while (time.time() - start_time) * 1000 < total_time_ms:
+            # Set time limit for this restart
+            time_limit = (time.time() + random.choice(time_distribution) / 1000)
+            
+            # Reset current solution for this restart
+            current = create_light_solution(self.generate_initial_solution(data))
+            temperature = 1000  # Reset temperature for each restart
+            
+            # Inner loop for this restart period
+            while (time.time() - start_time) * 1000 < total_time_ms and time.time() < time_limit:
+                # 1. Select tweak function dynamically
+                total_weight = sum(tweak_weights)
+                r = random.uniform(0, total_weight)
+                tweak_idx = 0
+                while r > tweak_weights[tweak_idx]:
+                    r -= tweak_weights[tweak_idx]
+                    tweak_idx += 1
+
+                # 2. Generate neighbor (avoid deepcopy)
+                neighbor = create_light_solution(
+                    tweak_functions[tweak_idx](
+                        Solution(current["signed"], [], current["books"], set()),
+                        data
+                    )
+                )
+
+                # 3. Simulated annealing acceptance
+                delta = neighbor["score"] - current["score"]
+                if delta > 0 or random.random() < math.exp(delta / temperature):
+                    current = neighbor
+                    tweak_success[tweak_idx] += 1
+
+                    # Update best solution
+                    if current["score"] > best["score"]:
+                        best = current.copy()
+                        stagnation = 0
+                    else:
+                        stagnation += 1
+
+                # 4. Adaptive tweak weights update
+                if random.random() < 0.01:  # Small chance to update weights
+                    for i in range(3):
+                        success_rate = tweak_success[i] / (sum(tweak_success) + 1)
+                        tweak_weights[i] = max(0.5, min(5.0, tweak_weights[i] * (0.9 + success_rate)))
+                    tweak_success = [0] * 3
+
+                # 5. Cool temperature to reduce exploration over time
+                temperature *= 0.995
+
+        # Convert back to full solution
+        return best["score"], Solution(
+            best["signed"],
+            [],
+            best["books"],
+            {b for books in best["books"].values() for b in books}
+        )
+

@@ -3,6 +3,7 @@ from models import Solver
 
 
 import os
+import time
 # import tkinter as tk
 # from tkinter import messagebox
 
@@ -51,13 +52,13 @@ directory = os.listdir('input')
 # solution.export('./output/output.txt')
 
 # files = ['f_libraries_of_the_world.txt','d_tough_choices.txt']
-for file in directory:
-    if file.endswith('.txt'):
-        print(f'Computing ./input/{file}')
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
-        solution = solver.hill_climbing_combined(data)
-        print(solution)
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Computing ./input/{file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solution = solver.hill_climbing_combined(data)
+#         print(solution)
 
 
 # results = []
@@ -104,3 +105,53 @@ for file in directory:
 #         # Calculate upper bound
 #         upper_bound = data.calculate_upper_bound()
 #         print(f"Upper Bound (Sum of Scores of Unique Books) for {file}: {upper_bound}")
+
+
+# print("---------- Hill-Climbing Swap Same Books with Crossover----------")
+# timeout_duration = 30 * 60
+
+# for file in directory:
+
+#     if file.endswith('.txt'):
+#         start_time = time.time()
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solver = Solver()
+#         initial_solution = solver.generate_initial_solution(data)
+#         optimized_solution = solver.hill_climbing_with_crossover(initial_solution, data)
+#         # optimized_solution.export('./output/output.txt')
+#         end_time = time.time()
+#         elapsed_time = end_time - start_time
+
+#         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+#         print(f"Time taken for {file}: {elapsed_time:.2f} seconds")
+
+#         if elapsed_time > timeout_duration:
+#             print(f"Timeout reached for {file}, stopping processing.")
+#             break  # Stop processing further files if timeout is exceeded
+
+# print("---------- ITERATED LOCAL SEARCH WITH RANDOM RESTARTS ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Computing ./input/{file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         result = solver.iterated_local_search(data, time_limit=300, max_iterations=1000)
+#         print(f"Final score for {file}: {result[0]:,}")
+#         output_dir = 'output/ils_random_restarts'
+#         os.makedirs(output_dir, exist_ok=True)
+#         output_file = os.path.join(output_dir, file)
+#         result[1].export(output_file)
+#         print("----------------------")
+
+
+for file in directory:
+    if file.endswith('.txt'):
+        parser = Parser(f'./input/{file}')
+        data = parser.parse()
+        score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
+        
+        solution.export(f'./output/{file}')
+        print(f'Final score: {score:,}')
+        print(f'Solution exported to ./output/{file}')
+

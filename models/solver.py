@@ -1,11 +1,13 @@
 import random
 from collections import defaultdict
+import time
 from models.library import Library
 import os
 # from tqdm import tqdm
 from models.solution import Solution
 import copy
 import random
+import math
 
 class Solver:
     def __init__(self):
@@ -14,7 +16,7 @@ class Solver:
     def generate_initial_solution(self, data):
         shuffled_libs = data.libs.copy()
         random.shuffle(shuffled_libs)
- 
+
         signed_libraries = []
         unsigned_libraries = []
         scanned_books_per_library = {}
@@ -45,6 +47,69 @@ class Solver:
         solution.calculate_fitness_score(data.scores)
 
         return solution
+
+    def crossover(self, solution, data):
+        """Performs crossover by shuffling library order and swapping books accordingly."""
+        new_solution = copy.deepcopy(solution) 
+
+        old_order = new_solution.signed_libraries[:]
+        library_indices = list(range(len(data.libs)))
+        random.shuffle(library_indices)
+
+        new_scanned_books_per_library = {}
+
+        for new_idx, new_lib_idx in enumerate(library_indices):
+            if new_idx >= len(old_order):
+                break 
+
+            old_lib_id = old_order[new_idx]
+            new_lib_id = new_lib_idx
+
+            if new_lib_id < 0 or new_lib_id >= len(data.libs):
+                print(f"Warning: new_lib_id {new_lib_id} is out of range for data.libs (size: {len(data.libs)})")
+                continue
+
+            if old_lib_id in new_solution.scanned_books_per_library:
+                books_to_move = new_solution.scanned_books_per_library[old_lib_id]
+
+                existing_books_in_new_lib = {book.id for book in data.libs[new_lib_id].books}
+
+                valid_books = []
+                for book_id in books_to_move:
+                    if book_id not in existing_books_in_new_lib and book_id not in [b for b in valid_books]:
+                        valid_books.append(book_id)
+
+                new_scanned_books_per_library[new_lib_id] = valid_books
+
+        new_solution.scanned_books_per_library = new_scanned_books_per_library
+        new_solution.calculate_fitness_score(data.scores)
+
+        return new_solution
+
+    def hill_climbing_with_crossover(self, initial_solution, data):
+        current_solution = initial_solution
+        max_iterations = 100 
+        convergence_threshold = 0.01
+        last_fitness = current_solution.fitness_score
+
+        start_time = time.time()
+
+        for iteration in range(max_iterations):
+            if iteration % 10 == 0:
+                print(f"Iteration {iteration + 1}, Fitness: {current_solution.fitness_score}")
+
+            neighbor_solution = self.crossover(current_solution, data)
+
+            if abs(neighbor_solution.fitness_score - last_fitness) < convergence_threshold:
+                print(f"Converged with fitness score: {neighbor_solution.fitness_score}")
+                break  
+            current_solution = neighbor_solution
+            last_fitness = neighbor_solution.fitness_score
+
+        end_time = time.time()
+        print(f"Total Time: {end_time - start_time:.2f} seconds")
+
+        return current_solution
 
     def tweak_solution_swap_signed(self, solution, data):
         book_count = defaultdict(int)
@@ -257,7 +322,7 @@ class Solver:
 
     def hill_climbing_swap_signed_with_unsigned(self, data, iterations=1000):
         solution = self.generate_initial_solution(data)
-        
+
         for i in range(iterations - 1):
             new_solution = self.tweak_solution_swap_signed_with_unsigned(solution, data)
             # new_solution = self.tweak_solution_signed_unsigned(solution, data, bias_type="favor_second_half")
@@ -281,7 +346,7 @@ class Solver:
 
     def tweak_solution_swap_same_books(self, solution, data):
         library_ids = [lib for lib in solution.signed_libraries if lib < len(data.libs)]
-        
+
         if len(library_ids) < 2:
             return solution
 
@@ -343,7 +408,7 @@ class Solver:
 
             if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
-    
+
         return (solution.fitness_score, solution)
 
     def hill_climbing_combined(self, data, iterations = 1000):
@@ -353,15 +418,16 @@ class Solver:
             self.tweak_solution_swap_signed_with_unsigned,
             self.tweak_solution_swap_same_books,
             self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_last_book
         ]
-        
+
         for i in range(iterations - 1):
             # if i % 100 == 0:
             #     print('i',i)
             target_climb = random.choice(list_of_climbs)
             solution_copy = copy.deepcopy(solution)
             new_solution = target_climb(solution_copy, data) 
-            
+
             if (new_solution.fitness_score > solution.fitness_score):
                 solution = new_solution
 
@@ -381,7 +447,8 @@ class Solver:
         # Get the last scanned book from this library
         last_scanned_book = scanned_books[-1]  # Last book in the list
 
-        library_dict = {f"Library {lib.id}": lib for lib in data.libs}
+        # library_dict = {f"Library {lib.id}": lib for lib in data.libs}
+        library_dict = {lib.id: lib for lib in data.libs}
 
         best_book = None
         best_score = -1
@@ -440,3 +507,229 @@ class Solver:
                 solution = new_solution
 
         return (solution.fitness_score, solution)
+
+
+    def iterated_local_search(self, data, time_limit=300, max_iterations=1000):
+        """
+        Implements Iterated Local Search (ILS) with Random Restarts
+        Args:
+            data: The problem data
+            time_limit: Maximum time in seconds (default: 300s = 5 minutes)
+            max_iterations: Maximum number of iterations (default: 1000)
+        """
+        min_time = 5 
+        max_time = min(60, time_limit)  
+        T = list(range(min_time, max_time + 1, 5)) 
+
+        Library._id_counter = 0 
+        S = self.generate_initial_solution(data)
+        print(f"Initial solution fitness: {S.fitness_score}")
+
+        H = copy.deepcopy(S)
+        Best = copy.deepcopy(S)
+
+        start_time = time.time()
+        total_iterations = 0
+
+        while (
+            total_iterations < max_iterations
+            and (time.time() - start_time) < time_limit
+        ):
+            local_time_limit = random.choice(T)
+            local_start_time = time.time()
+
+            while (time.time() - local_start_time) < local_time_limit and (
+                time.time() - start_time
+            ) < time_limit:
+
+                R = self.tweak_solution_swap_signed_with_unsigned(
+                    copy.deepcopy(S), data
+                )
+
+                if R.fitness_score > S.fitness_score:
+                    S = copy.deepcopy(R)
+                    
+                if S.fitness_score >= data.calculate_upper_bound():
+                    return (S.fitness_score, S)
+
+                total_iterations += 1
+                if total_iterations >= max_iterations:
+                    break
+
+            if S.fitness_score > Best.fitness_score:
+                Best = copy.deepcopy(S)
+
+            if S.fitness_score >= H.fitness_score:
+                H = copy.deepcopy(S)
+            else:
+
+                if random.random() < 0.1:
+                    H = copy.deepcopy(S)
+
+            S = self.perturb_solution(H, data)
+
+            if Best.fitness_score >= data.calculate_upper_bound():
+                break
+
+        return (Best.fitness_score, Best)
+
+    def perturb_solution(self, solution, data):
+        """Helper method for ILS to perturb solutions with destroy-and-rebuild strategy"""
+        perturbed = copy.deepcopy(solution)
+        
+        max_destroy_size = len(perturbed.signed_libraries)
+        if max_destroy_size == 0:
+            return perturbed 
+            
+        destroy_size = random.randint(
+            min(1, max_destroy_size),
+            min(max_destroy_size, max_destroy_size // 3 + 1)
+        )
+        
+        libraries_to_remove = random.sample(perturbed.signed_libraries, destroy_size)
+        
+        new_signed_libraries = [lib for lib in perturbed.signed_libraries if lib not in libraries_to_remove]
+        new_unsigned_libraries = perturbed.unsigned_libraries + libraries_to_remove
+        
+        new_scanned_books = set()
+        new_scanned_books_per_library = {}
+        
+        for lib_id in new_signed_libraries:
+            if lib_id in perturbed.scanned_books_per_library:
+                new_scanned_books_per_library[lib_id] = perturbed.scanned_books_per_library[lib_id].copy()
+                new_scanned_books.update(new_scanned_books_per_library[lib_id])
+        
+        curr_time = sum(data.libs[lib_id].signup_days for lib_id in new_signed_libraries)
+        
+        lib_scores = []
+        for lib_id in new_unsigned_libraries:
+            library = data.libs[lib_id]
+            available_books = [b for b in library.books if b.id not in new_scanned_books]
+            if not available_books:
+                continue
+            avg_score = sum(data.scores[b.id] for b in available_books) / len(available_books)
+            score = library.books_per_day * avg_score / library.signup_days
+            lib_scores.append((score, lib_id))
+        
+        lib_scores.sort(reverse=True)
+        
+        for _, lib_id in lib_scores:
+            library = data.libs[lib_id]
+            
+            if curr_time + library.signup_days >= data.num_days:
+                continue
+            
+            time_left = data.num_days - (curr_time + library.signup_days)
+            max_books_scanned = time_left * library.books_per_day
+            
+            available_books = sorted(
+                {book.id for book in library.books} - new_scanned_books,
+                key=lambda b: -data.scores[b]
+            )[:max_books_scanned]
+            
+            if available_books:
+                new_signed_libraries.append(lib_id)
+                new_scanned_books_per_library[lib_id] = available_books
+                new_scanned_books.update(available_books)
+                curr_time += library.signup_days
+                new_unsigned_libraries.remove(lib_id)
+        
+        rebuilt_solution = Solution(
+            new_signed_libraries,
+            new_unsigned_libraries,
+            new_scanned_books_per_library,
+            new_scanned_books
+        )
+        rebuilt_solution.calculate_fitness_score(data.scores)
+        
+        return rebuilt_solution
+
+    def max_possible_score(self, data):
+
+        return sum(book.score for book in data.books.values())
+
+    def hill_climbing_with_random_restarts(self, data, total_time_ms=1000):
+    # Lightweight solution representation
+        def create_light_solution(solution):
+            return {
+                "signed": list(solution.signed_libraries),
+                "books": dict(solution.scanned_books_per_library),
+                "score": solution.fitness_score
+            }
+
+        # Initialize
+        current = create_light_solution(self.generate_initial_solution(data))
+        best = current.copy()
+        tweak_functions = [
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_last_book
+        ]
+        
+        # Adaptive parameters
+        tweak_weights = [1.0] * 3  # Initial weights for 3 tweaks
+        tweak_success = [0] * 3
+        temperature = 1000  # Controls solution acceptance
+        stagnation = 0      # Iterations since last improvement
+        
+        # Time management
+        start_time = time.time()
+        time_distribution = [100, 200, 300, 400, 500]  # ms - possible time intervals for each restart
+
+        while (time.time() - start_time) * 1000 < total_time_ms:
+            # Set time limit for this restart
+            time_limit = (time.time() + random.choice(time_distribution) / 1000)
+            
+            # Reset current solution for this restart
+            current = create_light_solution(self.generate_initial_solution(data))
+            temperature = 1000  # Reset temperature for each restart
+            
+            # Inner loop for this restart period
+            while (time.time() - start_time) * 1000 < total_time_ms and time.time() < time_limit:
+                # 1. Select tweak function dynamically
+                total_weight = sum(tweak_weights)
+                r = random.uniform(0, total_weight)
+                tweak_idx = 0
+                while r > tweak_weights[tweak_idx]:
+                    r -= tweak_weights[tweak_idx]
+                    tweak_idx += 1
+
+                # 2. Generate neighbor (avoid deepcopy)
+                neighbor = create_light_solution(
+                    tweak_functions[tweak_idx](
+                        Solution(current["signed"], [], current["books"], set()),
+                        data
+                    )
+                )
+
+                # 3. Simulated annealing acceptance
+                delta = neighbor["score"] - current["score"]
+                if delta > 0 or random.random() < math.exp(delta / temperature):
+                    current = neighbor
+                    tweak_success[tweak_idx] += 1
+
+                    # Update best solution
+                    if current["score"] > best["score"]:
+                        best = current.copy()
+                        stagnation = 0
+                    else:
+                        stagnation += 1
+
+                # 4. Adaptive tweak weights update
+                if random.random() < 0.01:  # Small chance to update weights
+                    for i in range(3):
+                        success_rate = tweak_success[i] / (sum(tweak_success) + 1)
+                        tweak_weights[i] = max(0.5, min(5.0, tweak_weights[i] * (0.9 + success_rate)))
+                    tweak_success = [0] * 3
+
+                # 5. Cool temperature to reduce exploration over time
+                temperature *= 0.995
+
+        # Convert back to full solution
+        return best["score"], Solution(
+            best["signed"],
+            [],
+            best["books"],
+            {b for books in best["books"].values() for b in books}
+        )
+

@@ -733,3 +733,32 @@ class Solver:
             {b for books in best["books"].values() for b in books}
         )
 
+    def steepest_ascent_hill_climbing(self, data, total_time_ms=1000, n=5):
+        start_time = time.time() * 1000
+        current_solution = self.generate_initial_solution(data)
+        best_solution = current_solution
+        best_score = current_solution.fitness_score
+        
+        while (time.time() * 1000 - start_time) < total_time_ms:
+            R = self.tweak_solution_swap_signed(copy.deepcopy(current_solution), data)
+            best_tweak = R
+            best_tweak_score = R.fitness_score
+            
+            for _ in range(n - 1):
+                if (time.time() * 1000 - start_time) >= total_time_ms:
+                    break
+                
+                W = self.tweak_solution_swap_signed(copy.deepcopy(current_solution), data)
+                current_score = W.fitness_score
+                if current_score > best_tweak_score:
+                    best_tweak = W
+                    best_tweak_score = current_score
+            
+            
+            if best_tweak_score > best_score:
+                current_solution = copy.deepcopy(best_tweak)
+                best_score = best_tweak_score
+                best_solution = current_solution
+        
+        return best_score, best_solution
+    

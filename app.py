@@ -155,3 +155,13 @@ for file in directory:
         print(f'Final score: {score:,}')
         print(f'Solution exported to ./output/{file}')
 
+# print("---------- STEEPEST ASCENT HILL CLIMBING ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         print(parser)
+#         data = parser.parse()
+        
+#         score, solution = solver.steepest_ascent_hill_climbing(data, n=5, total_time_ms=1000)
+#         solution.export(f'./output/{file}')
+#         print(f'Final score: {score:,}')

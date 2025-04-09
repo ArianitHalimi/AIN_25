@@ -736,3 +736,39 @@ class Solver:
 
     def _get_signature(self, solution):
         return tuple(solution.signed_libraries)
+    
+    def tabu_search(self, initial_solution, data, tabu_max_len=10, n=5, max_iterations=100):
+        S = copy.deepcopy(initial_solution)
+        S.calculate_fitness_score(data.scores)
+        Best = copy.deepcopy(S)
+        
+        L = deque(maxlen=tabu_max_len)
+        L.append(self._get_signature(S))
+
+        for iteration in range(max_iterations):
+            print(f"Iteration {iteration+1}, Current: {S.fitness_score}, Best: {Best.fitness_score}")
+
+            R = self.tweak_solution_swap_last_book(S, data)
+
+            for _ in range(n - 1):
+                W = self.tweak_solution_swap_last_book(S, data)
+                sig_W = self._get_signature(W)
+                sig_R = self._get_signature(R)
+
+                if (sig_W not in L and W.fitness_score > R.fitness_score) or (sig_R in L):
+                    R = W 
+
+            sig_R = self._get_signature(R)
+
+            if sig_R not in L and R.fitness_score > S.fitness_score:
+                S = R 
+
+            L.append(sig_R)
+
+            if S.fitness_score > Best.fitness_score:
+                Best = copy.deepcopy(S)
+
+        return Best
+    
+
+    

@@ -8,6 +8,7 @@ from models.solution import Solution
 import copy
 import random
 import math
+from collections import deque
 
 class Solver:
     def __init__(self):
@@ -733,3 +734,5 @@ class Solver:
             {b for books in best["books"].values() for b in books}
         )
 
+    def _get_signature(self, solution):
+        return tuple(solution.signed_libraries)

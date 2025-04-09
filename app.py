@@ -144,6 +144,20 @@ directory = os.listdir('input')
 #         result[1].export(output_file)
 #         print("----------------------")
 
+# print("---------- Tabu Search ----------")
+
+# for file in directory:
+
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solver = Solver()
+#         initial_solution = solver.generate_initial_solution(data)
+#         optimized_solution = solver.tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
+
+#         # optimized_solution.export('./output/output.txt')
+
+#         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
 
 for file in directory:
     if file.endswith('.txt'):

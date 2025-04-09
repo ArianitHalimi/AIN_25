@@ -770,5 +770,72 @@ class Solver:
 
         return Best
     
+    def guided_local_search(self, data, max_time=300, max_iterations=1000):
+        C = set(range(len(data.libs)))  # Set of all possible library indices
+        
+        T = list(range(5, 31, 5))  # Time intervals from 5 to 30 seconds in steps of 5
+        
+        p = [0] * len(data.libs)
+        
+        S = self.generate_initial_solution(data)
+        
+        Best = copy.deepcopy(S)
+        
+        start_time = time.time()
+        iteration = 0
+        
+        while time.time() - start_time < max_time and iteration < max_iterations:
+            local_time_limit = time.time() + random.choice(T)
+            
+            while time.time() < local_time_limit and time.time() - start_time < max_time:
+                R = self.tweak_solution_swap_signed_with_unsigned(copy.deepcopy(S), data)
+                
+                if R.fitness_score > Best.fitness_score:
+                    Best = copy.deepcopy(R)
+                    print(f"New best score: {Best.fitness_score:,} at iteration {iteration}")
+                
+                R_quality = R.fitness_score - sum(p[i] for i in R.signed_libraries if i in C)
+                S_quality = S.fitness_score - sum(p[i] for i in S.signed_libraries if i in C)
+                if R_quality > S_quality:
+                    S = copy.deepcopy(R)
+                
+                if Best.fitness_score >= data.calculate_upper_bound():
+                    return Best
+            
+            C_prime = set()
+            
+            for Ci in S.signed_libraries:
+                if Ci not in C:
+                    continue
+                    
+                is_most_penalizable = True
+                Ci_utility = sum(data.scores[book.id] for book in data.libs[Ci].books)
+                Ci_penalizability = Ci_utility / (1 + p[Ci])
+                
+                for Cj in S.signed_libraries:
+                    if Cj == Ci or Cj not in C:
+                        continue
+                    Cj_utility = sum(data.scores[book.id] for book in data.libs[Cj].books)
+                    Cj_penalizability = Cj_utility / (1 + p[Cj])
+                    if Cj_penalizability > Ci_penalizability:
+                        is_most_penalizable = False
+                        break
+                
+                if is_most_penalizable:
+                    C_prime.add(Ci)
+            
+            for Ci in S.signed_libraries:
+                if Ci in C_prime:
+                    p[Ci] += 1
+            
+            iteration += 1
+            
+            if iteration % 100 == 0:
+                elapsed = time.time() - start_time
+                print(f"Iteration {iteration}, Time: {elapsed:.2f}s, Best score: {Best.fitness_score:,}")
+        
+        print(f"Search completed after {iteration} iterations and {time.time() - start_time:.2f} seconds")
+        return Best
+
 
     

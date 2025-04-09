@@ -159,12 +159,23 @@ directory = os.listdir('input')
 
 #         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
 
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.simulated_annealing_with_cutoff(data, total_time_ms=1000)
+#
+#         solution.export(f'./output/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/{file}')
+
+
 for file in directory:
     if file.endswith('.txt'):
         parser = Parser(f'./input/{file}')
         data = parser.parse()
         score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
-        
+
         solution.export(f'./output/{file}')
         print(f'Final score: {score:,}')
         print(f'Solution exported to ./output/{file}')

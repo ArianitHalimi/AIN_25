@@ -854,5 +854,3 @@ class Solver:
             print("random restart algorithm chosen: ", restarts_score)
             return restarts_score, restarts_sol
     
-    ata, total_time_ms=1000, n=5):
-    

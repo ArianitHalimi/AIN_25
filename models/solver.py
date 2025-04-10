@@ -773,6 +773,8 @@ class Solver:
         restarts_score, restarts_sol = self.hill_climbing_with_random_restarts(data, total_time_ms=remaining_time)
 
         if steepest_score >= restarts_score:
+            print("steepest ascent algorithm chosen: ", steepest_score)
             return steepest_score, steepest_sol
         else:
+            print("random restart algorithm chosen: ", restarts_score)
             return restarts_score, restarts_sol

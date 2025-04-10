@@ -145,15 +145,16 @@ directory = os.listdir('input')
 #         print("----------------------")
 
 
-for file in directory:
-    if file.endswith('.txt'):
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
-        score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
+# Hill climbing with inserts
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
         
-        solution.export(f'./output/{file}')
-        print(f'Final score: {score:,}')
-        print(f'Solution exported to ./output/{file}')
+#         solution.export(f'./output/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/{file}')
 
 # print("---------- STEEPEST ASCENT HILL CLIMBING ----------")
 # for file in directory:
@@ -178,13 +179,67 @@ for file in directory:
 #         print(f'Solution exported to ./output/best-of-two/{file}')
 
 
-print("---------- MONTE CARLO SEARCH ----------")
+# print("---------- MONTE CARLO SEARCH ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Computing ./input/{file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.monte_carlo_search(data, num_iterations=1000, time_limit=60)
+#         solution.export(f'./output/monte_carlo_{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/monte_carlo_{file}')
+
+# Hill climbing with inserts
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Processing file: {file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+
+#         # Call the hill_climbing_insert_library function
+#         score, solution = solver.hill_climbing_insert_library(data, iterations=1000)
+
+#         # Export the solution
+#         solution.export(f'./output/{file}')
+#         print(f'Final score for {file}: {score:,}')
+#         print(f'Solution exported to ./output/{file}')
+
+print("---------- GUIDED LOCAL SEARCH ----------")
 for file in directory:
     if file.endswith('.txt'):
-        print(f'Computing ./input/{file}')
+        print(f'Processing file: {file}')
         parser = Parser(f'./input/{file}')
         data = parser.parse()
-        score, solution = solver.monte_carlo_search(data, num_iterations=1000, time_limit=60)
-        solution.export(f'./output/monte_carlo_{file}')
-        print(f'Final score: {score:,}')
-        print(f'Solution exported to ./output/monte_carlo_{file}')
+
+        # Call the guided local search function
+        solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
+
+        # Export the solution
+        solution.export(f'./output/gls_{file}')
+        print(f'Final score for {file}: {solution.fitness_score:,}')
+        print(f'Solution exported to ./output/gls_{file}')
+
+
+
+# print("---------- STEEPEST ASCENT HILL CLIMBING ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         print(parser)
+#         data = parser.parse()
+        
+#         score, solution = solver.steepest_ascent_hill_climbing(data, n=5, total_time_ms=1000)
+#         solution.export(f'./output/{file}')
+#         print(f'Final score: {score:,}')
+
+# print("---------- BEST OF TWO BETWEEN STEEPEST ASCENT AND RANDOM RESTART ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.best_of_steepest_ascent_and_random_restart(data, total_time_ms=1000)
+        
+#         solution.export(f'./output/best-of-two/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/best-of-two/{file}')

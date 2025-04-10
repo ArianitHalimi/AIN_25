@@ -818,3 +818,84 @@ class Solver:
                     print(f"Iteration {i}, Best Score: {best_score:,}")
                     
             return best_score, best_solution
+        
+    def tweak_solution_swap_neighbor_libraries(self, solution, data):
+        """Swaps two adjacent libraries in the signed list to create a neighbor solution."""
+        if len(solution.signed_libraries) < 2:
+            return solution
+
+        new_solution = copy.deepcopy(solution)
+        swap_pos = random.randint(0, len(new_solution.signed_libraries) - 2)
+        
+        # Swap adjacent libraries
+        new_solution.signed_libraries[swap_pos], new_solution.signed_libraries[swap_pos + 1] = \
+            new_solution.signed_libraries[swap_pos + 1], new_solution.signed_libraries[swap_pos]
+        
+        curr_time = 0
+        scanned_books = set()
+        new_scanned_books_per_library = {}
+        
+        # Process libraries before swap point
+        for i in range(swap_pos):
+            lib_id = new_solution.signed_libraries[i]
+            if lib_id >= len(data.libs):  # Safety check
+                continue
+            library = data.libs[lib_id]
+            curr_time += library.signup_days
+            
+            if lib_id in solution.scanned_books_per_library:
+                books = solution.scanned_books_per_library[lib_id]
+                new_scanned_books_per_library[lib_id] = books
+                scanned_books.update(books)
+        
+        # Re-process from swap point
+        i = swap_pos
+        while i < len(new_solution.signed_libraries):
+            lib_id = new_solution.signed_libraries[i]
+            if lib_id >= len(data.libs):  # Skip invalid library IDs
+                new_solution.unsigned_libraries.append(lib_id)
+                new_solution.signed_libraries.pop(i)
+                continue
+                
+            library = data.libs[lib_id]
+            
+            if curr_time + library.signup_days >= data.num_days:
+                new_solution.unsigned_libraries.extend(new_solution.signed_libraries[i:])
+                new_solution.signed_libraries = new_solution.signed_libraries[:i]
+                break
+                
+            time_left = data.num_days - (curr_time + library.signup_days)
+            max_books_scanned = time_left * library.books_per_day
+            
+            available_books = sorted(
+                {book.id for book in library.books} - scanned_books,
+                key=lambda b: -data.scores[b]
+            )[:max_books_scanned]
+            
+            if available_books:
+                new_scanned_books_per_library[lib_id] = available_books
+                scanned_books.update(available_books)
+                curr_time += library.signup_days
+                i += 1
+            else:
+                new_solution.unsigned_libraries.append(lib_id)
+                new_solution.signed_libraries.pop(i)
+        
+        new_solution.scanned_books_per_library = new_scanned_books_per_library
+        new_solution.scanned_books = scanned_books
+        new_solution.calculate_fitness_score(data.scores)
+        
+        return new_solution
+
+    def hill_climbing_swap_neighbors(self, data, iterations=1000):
+        solution = self.generate_initial_solution(data)
+        best_score = solution.fitness_score
+        
+        for _ in range(iterations):
+            new_solution = self.tweak_solution_swap_neighbor_libraries(solution, data)
+            
+            if new_solution.fitness_score > solution.fitness_score:
+                solution = new_solution
+                best_score = solution.fitness_score
+        
+        return (best_score, solution)

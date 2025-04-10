@@ -15,8 +15,6 @@ class Solver:
         pass
 
     def generate_initial_solution(self, data):
-        Library._id_counter = 0
-        
         shuffled_libs = data.libs.copy()
         random.shuffle(shuffled_libs)
 
@@ -647,134 +645,11 @@ class Solver:
         
         return rebuilt_solution
 
-    def hill_climbing_insert_library(self, data, iterations=1000):
-        Library._id_counter = 0
-        
-        # 1. Preprocess and validate data
-        valid_library_ids = set(range(len(data.libs)))
-
-        # Convert book_libs to dictionary format if it's a list
-        if isinstance(data.book_libs, list):
-            # Assuming list index corresponds to book_id
-            book_libs_dict = {}
-            for book_id, lib_ids in enumerate(data.book_libs):
-                if isinstance(lib_ids, (list, tuple)):
-                    book_libs_dict[book_id] = [
-                        lib_id for lib_id in lib_ids
-                        if lib_id in valid_library_ids
-                    ]
-            data.book_libs = book_libs_dict
-        elif hasattr(data, 'book_libs') and isinstance(data.book_libs, dict):
-            # Clean existing dictionary
-            cleaned_book_libs = {}
-            for book_id, lib_ids in data.book_libs.items():
-                if isinstance(lib_ids, (list, tuple)):
-                    cleaned_book_libs[book_id] = [
-                        lib_id for lib_id in lib_ids
-                        if lib_id in valid_library_ids
-                    ]
-            data.book_libs = cleaned_book_libs
-        else:
-            raise ValueError("data.book_libs must be either a list or dictionary")
-
-        # Rest of the function remains the same as previous solution
-        solution = self.generate_initial_solution(data)
-        solution.unsigned_libraries = [
-            lib_id for lib_id in solution.unsigned_libraries
-            if lib_id in valid_library_ids
-        ]
-
-        for _ in range(iterations):
-            # Get unsigned books from valid libraries
-            unsigned_books = []
-            for lib_id in solution.unsigned_libraries:
-                if lib_id not in valid_library_ids:
-                    continue
-                lib = data.libs[lib_id]
-                for book in lib.books:
-                    if book.id not in solution.scanned_books:
-                        unsigned_books.append(book)
-
-            if not unsigned_books:
-                continue
-
-            # Select top book
-            unsigned_books.sort(key=lambda b: -data.scores[b.id])
-            selected_book = random.choice(unsigned_books[:max(1, len(unsigned_books)//20)])
-
-            # Find valid libraries containing this book
-            if selected_book.id not in data.book_libs:
-                continue
-
-            library_candidates = [
-                lib_id for lib_id in data.book_libs[selected_book.id]
-                if lib_id in valid_library_ids and
-                   lib_id in solution.unsigned_libraries
-            ]
-
-            if not library_candidates:
-                continue
-
-            # Sign the library
-            selected_library = random.choice(library_candidates)
-            solution.signed_libraries.append(selected_library)
-            solution.unsigned_libraries.remove(selected_library)
-
-            # Calculate available scanning time
-            total_signup = sum(
-                data.libs[lib_id].signup_days
-                for lib_id in solution.signed_libraries
-                if lib_id in valid_library_ids
-            )
-            time_left = data.num_days - total_signup
-
-            if time_left <= 0:
-                solution.signed_libraries.pop()
-                solution.unsigned_libraries.append(selected_library)
-                continue
-
-            # Scan books
-            lib = data.libs[selected_library]
-            available_books = sorted(
-                {b.id for b in lib.books} - solution.scanned_books,
-                key=lambda b: -data.scores[b]
-            )[:time_left * lib.books_per_day]
-
-            if available_books:
-                solution.scanned_books_per_library[selected_library] = available_books
-                solution.scanned_books.update(available_books)
-
-            # Ensure time constraint
-            while True:
-                total_signup = sum(
-                    data.libs[lib_id].signup_days
-                    for lib_id in solution.signed_libraries
-                    if lib_id in valid_library_ids
-                )
-                if total_signup <= data.num_days:
-                    break
-
-                if not solution.signed_libraries:
-                    break
-
-                removed = solution.signed_libraries.pop()
-                solution.unsigned_libraries.append(removed)
-                if removed in solution.scanned_books_per_library:
-                    solution.scanned_books.difference_update(
-                        solution.scanned_books_per_library.pop(removed)
-                    )
-
-            solution.calculate_fitness_score(data.scores)
-
-        return solution.fitness_score, solution
-
     def max_possible_score(self, data):
 
         return sum(book.score for book in data.books.values())
 
     def hill_climbing_with_random_restarts(self, data, total_time_ms=1000):
-        Library._id_counter = 0
-        
     # Lightweight solution representation
         def create_light_solution(solution):
             return {
@@ -859,6 +734,80 @@ class Solver:
             {b for books in best["books"].values() for b in books}
         )
 
+    def _get_signature(self, solution):
+        return tuple(solution.signed_libraries)
+    
+    def tabu_search(self, initial_solution, data, tabu_max_len=10, n=5, max_iterations=100):
+        S = copy.deepcopy(initial_solution)
+        S.calculate_fitness_score(data.scores)
+        Best = copy.deepcopy(S)
+        
+        L = deque(maxlen=tabu_max_len)
+        L.append(self._get_signature(S))
+
+        for iteration in range(max_iterations):
+            print(f"Iteration {iteration+1}, Current: {S.fitness_score}, Best: {Best.fitness_score}")
+
+            R = self.tweak_solution_swap_last_book(S, data)
+
+            for _ in range(n - 1):
+                W = self.tweak_solution_swap_last_book(S, data)
+                sig_W = self._get_signature(W)
+                sig_R = self._get_signature(R)
+
+                if (sig_W not in L and W.fitness_score > R.fitness_score) or (sig_R in L):
+                    R = W 
+
+            sig_R = self._get_signature(R)
+
+            if sig_R not in L and R.fitness_score > S.fitness_score:
+                S = R 
+
+            L.append(sig_R)
+
+            if S.fitness_score > Best.fitness_score:
+                Best = copy.deepcopy(S)
+
+        return Best
+    
+    def monte_carlo_search(self, data, num_iterations=1000, time_limit=None):
+        """
+        Monte Carlo search algorithm for finding optimal library configurations.
+        
+        Args:
+            data: The problem instance data
+            num_iterations: Maximum number of iterations to perform
+            time_limit: Maximum time to run in seconds (optional)
+            
+        Returns:
+            Tuple of (best_score, best_solution)
+        """
+        best_solution = None
+        best_score = 0
+        start_time = time.time()
+        
+        for i in range(num_iterations):
+            # Check time limit if specified
+            if time_limit and time.time() - start_time > time_limit:
+                break
+                
+            # Generate a random solution
+            current_solution = self.generate_initial_solution(data)
+            
+            # Evaluate the solution
+            current_score = current_solution.fitness_score
+            
+            # Update best solution if current is better
+            if current_score > best_score:
+                best_score = current_score
+                best_solution = current_solution
+                
+            # Print progress every 100 iterations
+            if i % 100 == 0:
+                print(f"Iteration {i}, Best Score: {best_score:,}")
+                
+        return best_score, best_solution
+
     def steepest_ascent_hill_climbing(self, data, total_time_ms=1000, n=5):
         start_time = time.time() * 1000
         current_solution = self.generate_initial_solution(data)
@@ -904,320 +853,4 @@ class Solver:
         else:
             print("random restart algorithm chosen: ", restarts_score)
             return restarts_score, restarts_sol
-
-
-    def monte_carlo_search(self, data, num_iterations=1000, time_limit=None):
-            """
-            Monte Carlo search algorithm for finding optimal library configurations.
-            
-            Args:
-                data: The problem instance data
-                num_iterations: Maximum number of iterations to perform
-                time_limit: Maximum time to run in seconds (optional)
-                
-            Returns:
-                Tuple of (best_score, best_solution)
-            """
-            best_solution = None
-            best_score = 0
-            start_time = time.time()
-            
-            for i in range(num_iterations):
-                # Check time limit if specified
-                if time_limit and time.time() - start_time > time_limit:
-                    break
-                    
-                # Generate a random solution
-                current_solution = self.generate_initial_solution(data)
-                
-                # Evaluate the solution
-                current_score = current_solution.fitness_score
-                
-                # Update best solution if current is better
-                if current_score > best_score:
-                    best_score = current_score
-                    best_solution = current_solution
-                    
-                # Print progress every 100 iterations
-                if i % 100 == 0:
-                    print(f"Iteration {i}, Best Score: {best_score:,}")
-                    
-            return best_score, best_solution
-        
-    def tweak_solution_swap_signed_with_unsigned(self, solution, data, bias_type=None, bias_ratio=2/3):
-            if not solution.signed_libraries or not solution.unsigned_libraries:
-                return solution
-
-            local_signed_libs = solution.signed_libraries.copy()
-            local_unsigned_libs = solution.unsigned_libraries.copy()
-
-            total_signed = len(local_signed_libs)
-
-            # Bias
-            if bias_type == "favor_first_half":
-                if random.random() < bias_ratio:
-                    signed_idx = random.randint(0, total_signed // 2 - 1)
-                else:
-                    signed_idx = random.randint(0, total_signed - 1)
-            elif bias_type == "favor_second_half":
-                if random.random() < bias_ratio:
-                    signed_idx = random.randint(total_signed // 2, total_signed - 1)
-                else:
-                    signed_idx = random.randint(0, total_signed - 1)
-            else:
-                signed_idx = random.randint(0, total_signed - 1)
-
-            unsigned_idx = random.randint(0, len(local_unsigned_libs) - 1)
-
-            # signed_lib_id = self._extract_lib_id(local_signed_libs, signed_idx)
-            # unsigned_lib_id = self._extract_lib_id(local_unsigned_libs, unsigned_idx)
-            signed_lib_id = local_signed_libs[signed_idx]
-            unsigned_lib_id = local_unsigned_libs[unsigned_idx]
-
-            # Swap the libraries
-            local_signed_libs[signed_idx] = unsigned_lib_id
-            local_unsigned_libs[unsigned_idx] = signed_lib_id
-            # print(f"swapped_signed_lib={unsigned_lib_id}")
-            # print(f"swapped_unsigned_lib={unsigned_lib_id}")
-
-            # Preserve the part before `signed_idx`
-            curr_time = 0
-            scanned_books = set()
-            new_scanned_books_per_library = {}
-
-            lib_lookup = {lib.id: lib for lib in data.libs}
-
-            # Process libraries before the swapped index
-            for i in range(signed_idx):
-                # lib_id = self._extract_lib_id(solution.signed_libraries, i)
-                lib_id = solution.signed_libraries[i]
-                library = lib_lookup.get(lib_id)
-
-                curr_time += library.signup_days
-                time_left = data.num_days - curr_time
-                max_books_scanned = time_left * library.books_per_day
-
-                available_books = [book.id for book in library.books if book.id not in scanned_books][:max_books_scanned]
-
-                if available_books:
-                    new_scanned_books_per_library[library.id] = available_books
-                    scanned_books.update(available_books)
-
-            # Recalculate from `signed_idx` onward
-            new_signed_libraries = local_signed_libs[:signed_idx]
-
-            for i in range(signed_idx, len(local_signed_libs)):
-                # lib_id = self._extract_lib_id(local_signed_libs, i)
-                lib_id = local_signed_libs[i]
-                library = lib_lookup.get(lib_id)
-
-                if curr_time + library.signup_days >= data.num_days:
-                    solution.unsigned_libraries.append(library.id)
-                    continue
-
-                curr_time += library.signup_days
-                time_left = data.num_days - curr_time
-                max_books_scanned = time_left * library.books_per_day
-
-                available_books = [book.id for book in library.books if book.id not in scanned_books][:max_books_scanned]
-
-                if available_books:
-                    new_signed_libraries.append(library.id)  # Not f"Library {library.id}"
-                    new_scanned_books_per_library[library.id] = available_books
-                    scanned_books.update(available_books)
-
-            # Update solution
-            new_solution = Solution(new_signed_libraries, local_unsigned_libs, new_scanned_books_per_library, scanned_books)
-            new_solution.calculate_fitness_score(data.scores)
-
-            return new_solution
     
-
-    def hill_climbing_insert_library(self, data, iterations=1000):
-            # Reset the Library ID counter to ensure we start from 0
-            Library._id_counter = 0
-
-            # 1. Preprocess and validate data
-            valid_library_ids = set(range(len(data.libs)))
-
-            # Convert book_libs to dictionary format if it's a list
-            if isinstance(data.book_libs, list):
-                # Assuming list index corresponds to book_id
-                book_libs_dict = {}
-                for book_id, lib_ids in enumerate(data.book_libs):
-                    if isinstance(lib_ids, (list, tuple)):
-                        book_libs_dict[book_id] = [
-                            lib_id for lib_id in lib_ids
-                            if lib_id in valid_library_ids
-                        ]
-                data.book_libs = book_libs_dict
-            elif hasattr(data, 'book_libs') and isinstance(data.book_libs, dict):
-                # Clean existing dictionary
-                cleaned_book_libs = {}
-                for book_id, lib_ids in data.book_libs.items():
-                    if isinstance(lib_ids, (list, tuple)):
-                        cleaned_book_libs[book_id] = [
-                            lib_id for lib_id in lib_ids
-                            if lib_id in valid_library_ids
-                        ]
-                data.book_libs = cleaned_book_libs
-            else:
-                raise ValueError("data.book_libs must be either a list or dictionary")
-
-            # Rest of the function remains the same as previous solution
-            solution = self.generate_initial_solution(data)
-            solution.unsigned_libraries = [
-                lib_id for lib_id in solution.unsigned_libraries
-                if lib_id in valid_library_ids
-            ]
-
-            for _ in range(iterations):
-                # Get unsigned books from valid libraries
-                unsigned_books = []
-                for lib_id in solution.unsigned_libraries:
-                    if lib_id not in valid_library_ids:
-                        continue
-                    lib = data.libs[lib_id]
-                    for book in lib.books:
-                        if book.id not in solution.scanned_books:
-                            unsigned_books.append(book)
-
-                if not unsigned_books:
-                    continue
-
-                # Select top book
-                unsigned_books.sort(key=lambda b: -data.scores[b.id])
-                selected_book = random.choice(unsigned_books[:max(1, len(unsigned_books)//20)])
-
-                # Find valid libraries containing this book
-                if selected_book.id not in data.book_libs:
-                    continue
-
-                library_candidates = [
-                    lib_id for lib_id in data.book_libs[selected_book.id]
-                    if lib_id in valid_library_ids and
-                       lib_id in solution.unsigned_libraries
-                ]
-
-                if not library_candidates:
-                    continue
-
-                # Sign the library
-                selected_library = random.choice(library_candidates)
-                solution.signed_libraries.append(selected_library)
-                solution.unsigned_libraries.remove(selected_library)
-
-                # Calculate available scanning time
-                total_signup = sum(
-                    data.libs[lib_id].signup_days
-                    for lib_id in solution.signed_libraries
-                    if lib_id in valid_library_ids
-                )
-                time_left = data.num_days - total_signup
-
-                if time_left <= 0:
-                    solution.signed_libraries.pop()
-                    solution.unsigned_libraries.append(selected_library)
-                    continue
-
-                # Scan books
-                lib = data.libs[selected_library]
-                available_books = sorted(
-                    {b.id for b in lib.books} - solution.scanned_books,
-                    key=lambda b: -data.scores[b]
-                )[:time_left * lib.books_per_day]
-
-                if available_books:
-                    solution.scanned_books_per_library[selected_library] = available_books
-                    solution.scanned_books.update(available_books)
-
-                # Ensure time constraint
-                while True:
-                    total_signup = sum(
-                        data.libs[lib_id].signup_days
-                        for lib_id in solution.signed_libraries
-                        if lib_id in valid_library_ids
-                    )
-                    if total_signup <= data.num_days:
-                        break
-
-                    if not solution.signed_libraries:
-                        break
-
-                    removed = solution.signed_libraries.pop()
-                    solution.unsigned_libraries.append(removed)
-                    if removed in solution.scanned_books_per_library:
-                        solution.scanned_books.difference_update(
-                            solution.scanned_books_per_library.pop(removed)
-                        )
-
-                solution.calculate_fitness_score(data.scores)
-
-            return solution.fitness_score, solution
-    
-    def guided_local_search(self, data, max_time=300, max_iterations=1000):
-        C = set(range(len(data.libs)))  # Set of all possible library indices
-        
-        T = list(range(5, 31, 5))  # Time intervals from 5 to 30 seconds in steps of 5
-        
-        p = [0] * len(data.libs)
-        
-        S = self.generate_initial_solution(data)
-        
-        Best = copy.deepcopy(S)
-        
-        start_time = time.time()
-        iteration = 0
-        
-        while time.time() - start_time < max_time and iteration < max_iterations:
-            local_time_limit = time.time() + random.choice(T)
-            
-            while time.time() < local_time_limit and time.time() - start_time < max_time:
-                R = self.tweak_solution_swap_signed_with_unsigned(copy.deepcopy(S), data)
-                
-                if R.fitness_score > Best.fitness_score:
-                    Best = copy.deepcopy(R)
-                    print(f"New best score: {Best.fitness_score:,} at iteration {iteration}")
-                
-                R_quality = R.fitness_score - sum(p[i] for i in R.signed_libraries if i in C)
-                S_quality = S.fitness_score - sum(p[i] for i in S.signed_libraries if i in C)
-                if R_quality > S_quality:
-                    S = copy.deepcopy(R)
-                
-                if Best.fitness_score >= data.calculate_upper_bound():
-                    return Best
-            
-            C_prime = set()
-            
-            for Ci in S.signed_libraries:
-                if Ci not in C:
-                    continue
-                    
-                is_most_penalizable = True
-                Ci_utility = sum(data.scores[book.id] for book in data.libs[Ci].books)
-                Ci_penalizability = Ci_utility / (1 + p[Ci])
-                
-                for Cj in S.signed_libraries:
-                    if Cj == Ci or Cj not in C:
-                        continue
-                    Cj_utility = sum(data.scores[book.id] for book in data.libs[Cj].books)
-                    Cj_penalizability = Cj_utility / (1 + p[Cj])
-                    if Cj_penalizability > Ci_penalizability:
-                        is_most_penalizable = False
-                        break
-                
-                if is_most_penalizable:
-                    C_prime.add(Ci)
-            
-            for Ci in S.signed_libraries:
-                if Ci in C_prime:
-                    p[Ci] += 1
-            
-            iteration += 1
-            
-            if iteration % 100 == 0:
-                elapsed = time.time() - start_time
-                print(f"Iteration {iteration}, Time: {elapsed:.2f}s, Best score: {Best.fitness_score:,}")
-        
-        print(f"Search completed after {iteration} iterations and {time.time() - start_time:.2f} seconds")
-        return Best

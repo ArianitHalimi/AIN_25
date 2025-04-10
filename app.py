@@ -145,15 +145,15 @@ directory = os.listdir('input')
 #         print("----------------------")
 
 
-for file in directory:
-    if file.endswith('.txt'):
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
-        score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
         
-        solution.export(f'./output/{file}')
-        print(f'Final score: {score:,}')
-        print(f'Solution exported to ./output/{file}')
+#         solution.export(f'./output/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/{file}')
 
 # print("---------- STEEPEST ASCENT HILL CLIMBING ----------")
 # for file in directory:

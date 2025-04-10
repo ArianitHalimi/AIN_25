@@ -734,106 +734,48 @@ class Solver:
             {b for books in best["books"].values() for b in books}
         )
 
-    def _get_signature(self, solution):
-        return tuple(solution.signed_libraries)
-    
-    def tabu_search(self, initial_solution, data, tabu_max_len=10, n=5, max_iterations=100):
-        S = copy.deepcopy(initial_solution)
-        S.calculate_fitness_score(data.scores)
-        Best = copy.deepcopy(S)
-        
-        L = deque(maxlen=tabu_max_len)
-        L.append(self._get_signature(S))
-
-        for iteration in range(max_iterations):
-            print(f"Iteration {iteration+1}, Current: {S.fitness_score}, Best: {Best.fitness_score}")
-
-            R = self.tweak_solution_swap_last_book(S, data)
-
-            for _ in range(n - 1):
-                W = self.tweak_solution_swap_last_book(S, data)
-                sig_W = self._get_signature(W)
-                sig_R = self._get_signature(R)
-
-                if (sig_W not in L and W.fitness_score > R.fitness_score) or (sig_R in L):
-                    R = W 
-
-            sig_R = self._get_signature(R)
-
-            if sig_R not in L and R.fitness_score > S.fitness_score:
-                S = R 
-
-            L.append(sig_R)
-
-            if S.fitness_score > Best.fitness_score:
-                Best = copy.deepcopy(S)
-
-        return Best
-    
-    def monte_carlo_search(self, data, num_iterations=1000, time_limit=None):
-        """
-        Monte Carlo search algorithm for finding optimal library configurations.
-        
-        Args:
-            data: The problem instance data
-            num_iterations: Maximum number of iterations to perform
-            time_limit: Maximum time to run in seconds (optional)
-            
-        Returns:
-            Tuple of (best_score, best_solution)
-        """
-        best_solution = None
-        best_score = 0
-        start_time = time.time()
-        
-        for i in range(num_iterations):
-            # Check time limit if specified
-            if time_limit and time.time() - start_time > time_limit:
-                break
-                
-            # Generate a random solution
-            current_solution = self.generate_initial_solution(data)
-            
-            # Evaluate the solution
-            current_score = current_solution.fitness_score
-            
-            # Update best solution if current is better
-            if current_score > best_score:
-                best_score = current_score
-                best_solution = current_solution
-                
-            # Print progress every 100 iterations
-            if i % 100 == 0:
-                print(f"Iteration {i}, Best Score: {best_score:,}")
-                
-        return best_score, best_solution
-
     def steepest_ascent_hill_climbing(self, data, total_time_ms=1000, n=5):
-         start_time = time.time() * 1000
-         current_solution = self.generate_initial_solution(data)
-         best_solution = current_solution
-         best_score = current_solution.fitness_score
-         
-         while (time.time() * 1000 - start_time) < total_time_ms:
-             R = self.tweak_solution_swap_signed(copy.deepcopy(current_solution), data)
-             best_tweak = R
-             best_tweak_score = R.fitness_score
-             
-             for _ in range(n - 1):
-                 if (time.time() * 1000 - start_time) >= total_time_ms:
-                     break
-                 
-                 W = self.tweak_solution_swap_signed(copy.deepcopy(current_solution), data)
-                 current_score = W.fitness_score
-                 if current_score > best_tweak_score:
-                     best_tweak = W
-                     best_tweak_score = current_score
-             
-             
-             if best_tweak_score > best_score:
-                 current_solution = copy.deepcopy(best_tweak)
-                 best_score = best_tweak_score
-                 best_solution = current_solution
-         
-         return best_score, best_solution
+        start_time = time.time() * 1000
+        current_solution = self.generate_initial_solution(data)
+        best_solution = current_solution
+        best_score = current_solution.fitness_score
+        
+        while (time.time() * 1000 - start_time) < total_time_ms:
+            R = self.tweak_solution_swap_signed(copy.deepcopy(current_solution), data)
+            best_tweak = R
+            best_tweak_score = R.fitness_score
+            
+            for _ in range(n - 1):
+                if (time.time() * 1000 - start_time) >= total_time_ms:
+                    break
+                
+                W = self.tweak_solution_swap_signed(copy.deepcopy(current_solution), data)
+                current_score = W.fitness_score
+                if current_score > best_tweak_score:
+                    best_tweak = W
+                    best_tweak_score = current_score
+            
+            
+            if best_tweak_score > best_score:
+                current_solution = copy.deepcopy(best_tweak)
+                best_score = best_tweak_score
+                best_solution = current_solution
+        
+        return best_score, best_solution
     
+    def best_of_steepest_ascent_and_random_restart(self, data, total_time_ms=1000):
+        start_time = time.time() * 1000  # Start time in milliseconds
+        time_steepest = total_time_ms // 2
+        steepest_score, steepest_sol = self.steepest_ascent_hill_climbing(data, total_time_ms=time_steepest, n=5)
+
+        elapsed_time = time.time() * 1000 - start_time
+        remaining_time = max(0, total_time_ms - elapsed_time)
+
+        restarts_score, restarts_sol = self.hill_climbing_with_random_restarts(data, total_time_ms=remaining_time)
+
+        if steepest_score >= restarts_score:
+            print("steepest ascent algorithm chosen: ", steepest_score)
+            return steepest_score, steepest_sol
+        else:
+            print("random restart algorithm chosen: ", restarts_score)
+            return restarts_score, restarts_sol

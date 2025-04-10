@@ -169,7 +169,6 @@ directory = os.listdir('input')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
-
 for file in directory:
     if file.endswith('.txt'):
         parser = Parser(f'./input/{file}')

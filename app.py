@@ -145,6 +145,8 @@ directory = os.listdir('input')
 #         print("----------------------")
 
 
+# Hill climbing with inserts
+=======
 # for file in directory:
 #     if file.endswith('.txt'):
 #         parser = Parser(f'./input/{file}')
@@ -189,14 +191,19 @@ directory = os.listdir('input')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/monte_carlo_{file}')
 
+# Hill climbing with inserts
 # for file in directory:
 #     if file.endswith('.txt'):
+#         print(f'Processing file: {file}')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
-#         score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
-        
+
+#         # Call the hill_climbing_insert_library function
+#         score, solution = solver.hill_climbing_insert_library(data, iterations=1000)
+
+#         # Export the solution
 #         solution.export(f'./output/{file}')
-#         print(f'Final score: {score:,}')
+#         print(f'Final score for {file}: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
 print("---------- GUIDED LOCAL SEARCH ----------")
@@ -213,4 +220,5 @@ for file in directory:
         solution.export(f'./output/gls_{file}')
         print(f'Final score for {file}: {solution.fitness_score:,}')
         print(f'Solution exported to ./output/gls_{file}')
+
 

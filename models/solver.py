@@ -762,3 +762,17 @@ class Solver:
         
         return best_score, best_solution
     
+    def best_of_steepest_ascent_and_random_restart(self, data, total_time_ms=1000):
+        start_time = time.time() * 1000  # Start time in milliseconds
+        time_steepest = total_time_ms // 2
+        steepest_score, steepest_sol = self.steepest_ascent_hill_climbing(data, total_time_ms=time_steepest, n=5)
+
+        elapsed_time = time.time() * 1000 - start_time
+        remaining_time = max(0, total_time_ms - elapsed_time)
+
+        restarts_score, restarts_sol = self.hill_climbing_with_random_restarts(data, total_time_ms=remaining_time)
+
+        if steepest_score >= restarts_score:
+            return steepest_score, steepest_sol
+        else:
+            return restarts_score, restarts_sol

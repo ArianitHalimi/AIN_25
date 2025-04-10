@@ -165,3 +165,14 @@ for file in directory:
 #         score, solution = solver.steepest_ascent_hill_climbing(data, n=5, total_time_ms=1000)
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
+
+# print("---------- BEST OF TWO BETWEEN STEEPEST ASCENT AND RANDOM RESTART ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.best_of_steepest_ascent_and_random_restart(data, total_time_ms=1000)
+        
+#         solution.export(f'./output/best-of-two/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/best-of-two/{file}')

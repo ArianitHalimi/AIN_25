@@ -146,7 +146,6 @@ directory = os.listdir('input')
 
 
 # Hill climbing with inserts
-=======
 # for file in directory:
 #     if file.endswith('.txt'):
 #         parser = Parser(f'./input/{file}')

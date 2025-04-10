@@ -52,13 +52,10 @@ def analyze_instance(file_path):
         print(f"Error processing file: {str(e)}")
         return None
 
-def create_excel_report(input_file_path, output_file_path, instance_name):
-    """Create Excel report with metrics for the specified instance"""
-    metrics = analyze_instance(input_file_path)
-    if not metrics:
-        return False
-
+def create_excel_report(input_file_paths, output_file_path):
+    """Create Excel report with metrics for all instances"""
     try:
+        # If output file exists, load it, otherwise create a new DataFrame
         if os.path.exists(output_file_path):
             df = pd.read_excel(output_file_path)
         else:
@@ -74,25 +71,39 @@ def create_excel_report(input_file_path, output_file_path, instance_name):
             }
             df = pd.DataFrame(data)
 
-        if instance_name in df["Instance"].values:
-            instance_index = df.index[df["Instance"] == instance_name].tolist()[0]
-        else:
-            instance_index = len(df)
-            df.loc[instance_index, "Instance"] = instance_name
+        # Iterate over all input files
+        for input_file in input_file_paths:
+            instance_name = os.path.basename(input_file).split('.')[0]
+            metrics = analyze_instance(input_file)
 
-        for key, value in metrics.items():
-            df.loc[instance_index, key] = value
+            if not metrics:
+                continue
 
+            # Find or add a new row for the instance
+            if instance_name in df["Instance"].values:
+                instance_index = df.index[df["Instance"] == instance_name].tolist()[0]
+            else:
+                instance_index = len(df)
+                df.loc[instance_index, "Instance"] = instance_name
+
+            # Add metrics to the row
+            for key, value in metrics.items():
+                df.loc[instance_index, key] = value
+
+        # Save DataFrame to Excel
         df.to_excel(output_file_path, index=False)
 
+        # Formatting the Excel file
         wb = load_workbook(output_file_path)
         ws = wb.active
 
+        # Style headers
         header_font = Font(bold=True)
         for cell in ws[1]:
             cell.font = header_font
             cell.alignment = Alignment(horizontal='center')
 
+        # Adjust column widths
         for column in ws.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -116,22 +127,22 @@ def create_excel_report(input_file_path, output_file_path, instance_name):
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     input_folder = os.path.join(os.path.dirname(current_dir), "input")
-    output_folder = current_dir 
+    output_folder = current_dir
 
-    input_file = os.path.join(input_folder, "a_example.txt")
+    # List of instance files to process
+    instance_files = [
+        # "B5000_L90_D21.txt", "B50000_L400_D28.txt", "B90000_L850_D21.txt", "B95000_L2000_D28.txt", "B100000_L600_D28.txt",
+        "a_example.txt", "b_read_on.txt", "c_incunabula.txt", "d_tough_choices.txt", "e_so_many_books.txt", "f_libraries_of_the_world.txt", "switch_books_instance.txt", "UPFIEK.txt"
+    ]
+
+
+    input_file_paths = [os.path.join(input_folder, file) for file in instance_files]
     output_file = os.path.join(output_folder, "library_metrics.xlsx")
 
-    if not os.path.exists(input_file):
-        print(f"Error: Input file not found at {input_file}")
-        print("Please ensure:")
-        print("1. The 'input' folder exists at the same level as 'generator'")
-        print("2. The input file 'UPFIEK.txt' exists in the input folder")
+    if not all(os.path.exists(file) for file in input_file_paths):
+        print("Error: Some input files are missing. Please ensure all instance files exist in the 'input' folder.")
     else:
-        success = create_excel_report(
-            input_file_path=input_file,
-            output_file_path=output_file,
-            instance_name="a_example"
-        )
+        success = create_excel_report(input_file_paths=input_file_paths, output_file_path=output_file)
 
         if success:
             print("Report generated successfully!")

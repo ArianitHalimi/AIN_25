@@ -244,6 +244,7 @@ for file in directory:
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/best-of-two/{file}')
 
+# print("---------- Simulated Annealing With Cutoff ----------")
 # for file in directory:
 #     if file.endswith('.txt'):
 #         parser = Parser(f'./input/{file}')

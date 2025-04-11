@@ -130,6 +130,21 @@ directory = os.listdir('input')
 #             print(f"Timeout reached for {file}, stopping processing.")
 #             break  # Stop processing further files if timeout is exceeded
 
+# print("---------- Tabu Search ----------")
+
+# for file in directory:
+
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solver = Solver()
+#         initial_solution = solver.generate_initial_solution(data)
+#         optimized_solution = solver.tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
+
+#         # optimized_solution.export('./output/output.txt')
+
+#         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+
 # print("---------- ITERATED LOCAL SEARCH WITH RANDOM RESTARTS ----------")
 # for file in directory:
 #     if file.endswith('.txt'):

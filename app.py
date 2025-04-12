@@ -130,6 +130,21 @@ directory = os.listdir('input')
 #             print(f"Timeout reached for {file}, stopping processing.")
 #             break  # Stop processing further files if timeout is exceeded
 
+# print("---------- Tabu Search ----------")
+
+# for file in directory:
+
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         solver = Solver()
+#         initial_solution = solver.generate_initial_solution(data)
+#         optimized_solution = solver.tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
+
+#         # optimized_solution.export('./output/output.txt')
+
+#         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+
 # print("---------- ITERATED LOCAL SEARCH WITH RANDOM RESTARTS ----------")
 # for file in directory:
 #     if file.endswith('.txt'):
@@ -151,7 +166,7 @@ directory = os.listdir('input')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         score, solution = solver.hill_climbing_with_random_restarts(data, total_time_ms=1000)
-        
+
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
@@ -162,7 +177,7 @@ directory = os.listdir('input')
 #         parser = Parser(f'./input/{file}')
 #         print(parser)
 #         data = parser.parse()
-        
+
 #         score, solution = solver.steepest_ascent_hill_climbing(data, n=5, total_time_ms=1000)
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
@@ -173,7 +188,7 @@ directory = os.listdir('input')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         score, solution = solver.best_of_steepest_ascent_and_random_restart(data, total_time_ms=1000)
-        
+
 #         solution.export(f'./output/best-of-two/{file}')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/best-of-two/{file}')
@@ -228,7 +243,7 @@ for file in directory:
 #         parser = Parser(f'./input/{file}')
 #         print(parser)
 #         data = parser.parse()
-        
+
 #         score, solution = solver.steepest_ascent_hill_climbing(data, n=5, total_time_ms=1000)
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
@@ -239,7 +254,18 @@ for file in directory:
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         score, solution = solver.best_of_steepest_ascent_and_random_restart(data, total_time_ms=1000)
-        
+
 #         solution.export(f'./output/best-of-two/{file}')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/best-of-two/{file}')
+
+# print("---------- Simulated Annealing With Cutoff ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.simulated_annealing_with_cutoff(data, total_time_ms=1000)
+#
+#         solution.export(f'./output/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/{file}')

@@ -1,6 +1,6 @@
 from models import Parser
 from models import Solver
-
+from models import AcoSolver
 
 import os
 import time
@@ -8,6 +8,7 @@ import time
 # from tkinter import messagebox
 
 solver = Solver()
+aco_solver = AcoSolver(base_solver=solver)
 
 directory = os.listdir('input')
 
@@ -220,20 +221,20 @@ directory = os.listdir('input')
 #         print(f'Final score for {file}: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
-print("---------- GUIDED LOCAL SEARCH ----------")
-for file in directory:
-    if file.endswith('.txt'):
-        print(f'Processing file: {file}')
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
+# print("---------- GUIDED LOCAL SEARCH ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Processing file: {file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
 
-        # Call the guided local search function
-        solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
+#         # Call the guided local search function
+#         solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
 
-        # Export the solution
-        solution.export(f'./output/gls_{file}')
-        print(f'Final score for {file}: {solution.fitness_score:,}')
-        print(f'Solution exported to ./output/gls_{file}')
+#         # Export the solution
+#         solution.export(f'./output/gls_{file}')
+#         print(f'Final score for {file}: {solution.fitness_score:,}')
+#         print(f'Solution exported to ./output/gls_{file}')
 
 
 
@@ -269,3 +270,25 @@ for file in directory:
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
+
+print("---------- ACO + Algorithm111 ----------")
+for file in directory:
+    if file.endswith('.txt'):
+        print(f'Processing file: {file}')
+        parser = Parser(f'./input/{file}')
+        data = parser.parse()
+
+        # Example: run ACO with alpha=0.1, 10 iterations, population size=5
+        best_solution = aco_solver.run_algorithm111(
+            data,
+            alpha=0.1,
+            iterations=500,
+            population_size=5
+        )
+
+        # Export the best solution
+        output_path = f'./output/aco_{file}'
+        best_solution.export(output_path)
+        print(f"Final ACO solution for {file} => Score: {best_solution.fitness_score:,}")
+        print(f"Solution exported to: {output_path}")
+        print(f"------------------------------------")

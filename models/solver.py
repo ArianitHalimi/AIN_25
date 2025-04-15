@@ -933,3 +933,44 @@ class Solver:
             print("random restart algorithm chosen: ", restarts_score)
             return restarts_score, restarts_sol
     
+    def great_deluge_algorithm(self, data, max_time=300, max_iterations=1000, delta_B=None):
+        current_solution = self.generate_initial_solution(data)
+        current_score = current_solution.fitness_score
+        best_solution = copy.deepcopy(current_solution)
+        best_score = current_score
+        
+        B = current_score
+        
+        if delta_B is None:
+            delta_B = current_score / max_iterations
+        
+        tweak_functions = [
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_last_book,
+            self.tweak_solution_swap_same_books
+        ]
+        
+        start_time = time.time()
+        iterations = 0
+        
+        while (time.time() - start_time) < max_time and iterations < max_iterations:
+            tweak_func = random.choice(tweak_functions)
+            neighbor = tweak_func(copy.deepcopy(current_solution), data)
+            neighbor_score = neighbor.fitness_score
+            
+            if neighbor_score >= current_score or neighbor_score >= B:
+                current_solution = neighbor
+                current_score = neighbor_score
+                
+                if current_score > best_score:
+                    best_solution = copy.deepcopy(current_solution)
+                    best_score = current_score
+            
+            B -= delta_B
+            iterations += 1
+            
+            # Ensure B doesn't go below zero (optional)
+            B = max(B, 0)
+        
+        return best_score, best_solution

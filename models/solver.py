@@ -12,11 +12,21 @@ from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 import multiprocessing
+from typing import Tuple
+from models.instance_data import InstanceData
 
-def _worker_init(problem_data, tweaks):
-    global WORKER_DATA, TWEAK_METHODS
-    WORKER_DATA = problem_data
-    TWEAK_METHODS = tweaks
+def _pool_init(instance_data: InstanceData, hc_steps: int, mutation_prob: float):
+    global INSTANCE, HC_STEPS, MUT_PROB, SOLVER
+    INSTANCE    = instance_data
+    HC_STEPS    = hc_steps
+    MUT_PROB    = mutation_prob
+    SOLVER      = Solver()
+
+def _process_offspring(sol: Solution) -> Solution:
+    """In‐place mutation + hill‐climb on one offspring."""
+    if random.random() < MUT_PROB:
+        _, sol = SOLVER.hill_climbing_combined_w_initial_solution(sol, INSTANCE, iterations=HC_STEPS)
+    return sol
 
 class Solver:
     def __init__(self):
@@ -1383,105 +1393,100 @@ class Solver:
         
         return (best_score, solution)
     
-    def hybrid_parallel_evolutionary_search(self, data, num_iterations=1000, time_limit=None):
+    def hybrid_parallel_evolutionary_search(
+        self,
+        data: InstanceData,
+        num_iterations: int = 1000,
+        time_limit: float = None
+    ) -> Tuple[float, Solution]:
         """
-        Optimized hybrid algorithm combining single-state and population-based methods
-        with parallel computation, adaptive mutation, and early stopping.
+        Optimized hybrid GA: population-based crossover + parallel hill-climbing mutations,
+        adaptive stagnation, and early stopping.
         """
-        best_solution = None
-        best_score = 0
-        start_time = time.time()
-        stagnation_count = 0
-        max_stagnation = 50  # stop if no improvement for this many iterations
+        best_solution   = None
+        best_score      = 0.0
+        start_time      = time.time()
+        stagnation_cnt  = 0
+        max_stagnation  = 50
+        
+        pop_size         = 4
+        tour_size        = 2
+        mutation_prob    = 0.3
+        hill_climb_steps = 50
 
-        # Prepare tweak methods once
-        tweak_methods = [
-            self.tweak_solution_swap_signed_with_unsigned,
-            self.tweak_solution_swap_same_books,
-            self.tweak_solution_swap_last_book
-        ]
+        # 1) Initialize population
+        population = self.initialize_population(self.generate_initial_solution_grasp, data)
 
-        # Initialize population of size 2
-        population = []
-        for _ in range(2):
-            sol = self.generate_initial_solution_grasp(data)
-            if sol:
-                population.append(sol)
-                if sol.fitness_score > best_score:
-                    best_score, best_solution = sol.fitness_score, sol
+        # record initial best
+        for sol in population:
+            if sol.fitness_score > best_score:
+                best_score, best_solution = sol.fitness_score, sol
 
-        # If GRASP failed entirely, fall back to single‐state
-        if not population:
-            best_solution = self.generate_initial_solution(data)
-            best_score = best_solution.fitness_score
-            return best_score, best_solution
-
-        # Adaptive mutation rate
-        mutation_rate = 0.3
-        last_improvement = time.time()
-
-        # Start ONE pool for the whole run, pushing `data` & `tweak_methods` into each worker
+        # 2) Launch pool once for all generations
         with ProcessPoolExecutor(
-            max_workers=2,
-            initializer=_worker_init,
-            initargs=(data, tweak_methods)
+            max_workers=max(1, pop_size // 2),
+            initializer=_pool_init,
+            initargs=(data, hill_climb_steps, mutation_prob)
         ) as executor:
+
             iteration = 0
             while iteration < num_iterations:
-                # time‐limit check
+                # time limit?
                 if time_limit and (time.time() - start_time) > time_limit:
                     break
 
-                # adapt mutation rate based on recent progress
-                if time.time() - last_improvement > 10:
-                    mutation_rate = min(0.5, mutation_rate * 1.1)
-                else:
-                    mutation_rate = max(0.1, mutation_rate * 0.95)
+                # sort & evaluate
+                population.sort(key=lambda s: s.fitness_score, reverse=True)
+                current_best = population[0]
 
-                # PARALLEL LOCAL SEARCH
-                try:
-                    improved = list(executor.map(
-                        self.parallel_local_search,
-                        population,
-                        chunksize=1
-                    ))
-                except Exception:
-                    # fallback to serial if something goes wrong
-                    improved = [self.parallel_local_search(sol, data) for sol in population]
-
-                # select and record best
-                improved.sort(key=lambda x: x.fitness_score, reverse=True)
-                current_best = improved[0]
+                # update best / stagnation
                 if current_best.fitness_score > best_score:
-                    best_score = current_best.fitness_score
-                    best_solution = current_best
-                    stagnation_count = 0
-                    last_improvement = time.time()
+                    best_score, best_solution = current_best.fitness_score, current_best
+                    stagnation_cnt = 0
                 else:
-                    stagnation_count += 1
+                    stagnation_cnt += 1
 
-                # early stop on stagnation
-                if stagnation_count >= max_stagnation:
-                    print(f"Early stopping at iteration {iteration} due to stagnation")
+                # early stop?
+                if stagnation_cnt >= max_stagnation:
+                    print(f"Early stopping at iteration {iteration} due to no improvement")
                     break
 
-                # generate next generation (elitism + one child)
-                new_population = [current_best]
-                parent2 = random.choice(improved)
-                child = self.crossover(current_best, parent2, data)
-                if random.random() < mutation_rate:
-                    child = self.mutate_solution(child, data)
-                new_population.append(child)
-                population = new_population
+                # build next generation
+                new_pop = [current_best]  # elitism
+
+                # generate raw offspring
+                raw_offspring = []
+                while len(raw_offspring) < pop_size - 1:
+                    p1 = self.tournament_select(population)
+                    p2 = self.tournament_select(population)
+                    o1, o2 = self.crossover(p1, p2)
+                    raw_offspring.append(o1)
+                    if len(raw_offspring) < pop_size - 1:
+                        raw_offspring.append(o2)
+
+                # parallel mutation + hill‑climb
+                offspring = list(executor.map(_process_offspring, raw_offspring, chunksize=1))
+
+                new_pop.extend(offspring)
+                population = new_pop
 
                 iteration += 1
                 if iteration % 50 == 0:
                     elapsed = time.time() - start_time
                     print(f"Iteration {iteration}, Best Score: {best_score:,}, Time: {elapsed:.1f}s")
 
-        # final fallback if nothing ever set best_solution
+        # final fallback
         if best_solution is None:
-            best_solution = self.generate_initial_solution(data)
-            best_score = best_solution.fitness_score
+            best_solution = self.generate_initial_solution_grasp(data)
+            best_score    = best_solution.fitness_score
 
         return best_score, best_solution
+
+    def initialize_population(self, initializer, data):
+        """Initialize population using the provided initializer function."""
+        return [initializer(data) for _ in range(self.population_size)]
+
+    def tournament_select(self, population):
+        """Select a solution using tournament selection."""
+        tournament = random.sample(population, self.tournament_size)
+        return max(tournament, key=lambda x: x.fitness_score)

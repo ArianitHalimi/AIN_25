@@ -51,15 +51,14 @@ directory = os.listdir('input')
 #
 # solution.export('./output/output.txt')
 
-# files = ['f_libraries_of_the_world.txt','d_tough_choices.txt']
-# for file in directory:
+# files = ['a_example.txt','b_read_on.txt']
+# for file in files:
 #     if file.endswith('.txt'):
 #         print(f'Computing ./input/{file}')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         solution = solver.hill_climbing_combined(data)
-#         print(solution)
-
+#         print(solution[0])
 
 # results = []
 # for file in directory:
@@ -220,20 +219,20 @@ directory = os.listdir('input')
 #         print(f'Final score for {file}: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
-print("---------- GUIDED LOCAL SEARCH ----------")
-for file in directory:
-    if file.endswith('.txt'):
-        print(f'Processing file: {file}')
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
+# print("---------- GUIDED LOCAL SEARCH ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Processing file: {file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
 
-        # Call the guided local search function
-        solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
+#         # Call the guided local search function
+#         solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
 
-        # Export the solution
-        solution.export(f'./output/gls_{file}')
-        print(f'Final score for {file}: {solution.fitness_score:,}')
-        print(f'Solution exported to ./output/gls_{file}')
+#         # Export the solution
+#         solution.export(f'./output/gls_{file}')
+#         print(f'Final score for {file}: {solution.fitness_score:,}')
+#         print(f'Solution exported to ./output/gls_{file}')
 
 
 

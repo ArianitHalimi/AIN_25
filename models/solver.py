@@ -177,7 +177,7 @@ class Solver:
         return new_solution
 
     def hill_climbing_swap_signed(self, data, iterations = 1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
         for i in range(iterations):
             solution_clone = copy.deepcopy(solution)
             new_solution = self.tweak_solution_swap_signed(solution_clone, data)
@@ -279,7 +279,7 @@ class Solver:
         return new_solution
 
     def hill_climbing_swap_signed_with_unsigned(self, data, iterations=1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations - 1):
             new_solution = self.tweak_solution_swap_signed_with_unsigned(solution, data)
@@ -292,10 +292,10 @@ class Solver:
         return (solution.fitness_score, solution)
 
     def random_search(self, data, iterations = 1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations - 1):
-            new_solution = self.generate_initial_solution(data)
+            new_solution = self.generate_initial_solution_grasp(data)
 
             if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
@@ -359,7 +359,7 @@ class Solver:
 
     def hill_climbing_swap_same_books(self, data, iterations = 1000):
         Library._id_counter = 0
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations):
             new_solution = self.tweak_solution_swap_same_books(solution, data)
@@ -370,7 +370,7 @@ class Solver:
         return (solution.fitness_score, solution)
 
     def hill_climbing_combined(self, data, iterations = 1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         list_of_climbs = [
             self.tweak_solution_swap_signed_with_unsigned,
@@ -456,7 +456,7 @@ class Solver:
         return new_solution
 
     def hill_climbing_swap_last_book(self, data, iterations=1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations - 1):
             new_solution = self.tweak_solution_swap_last_book(solution, data)
@@ -642,7 +642,7 @@ class Solver:
             }
 
         # Initialize
-        current = create_light_solution(self.generate_initial_solution(data))
+        current = create_light_solution(self.generate_initial_solution_grasp(data))
         best = current.copy()
         tweak_functions = [
             self.tweak_solution_swap_signed_with_unsigned,
@@ -665,7 +665,7 @@ class Solver:
             time_limit = (time.time() + random.choice(time_distribution) / 1000)
             
             # Reset current solution for this restart
-            current = create_light_solution(self.generate_initial_solution(data))
+            current = create_light_solution(self.generate_initial_solution_grasp(data))
             temperature = 1000  # Reset temperature for each restart
             
             # Inner loop for this restart period
@@ -763,7 +763,7 @@ class Solver:
             }
 
         # Initialize
-        current = create_light_solution(self.generate_initial_solution(data))
+        current = create_light_solution(self.generate_initial_solution_grasp(data))
         best = current.copy()
         tweak_functions = [
             self.tweak_solution_swap_signed_with_unsigned,
@@ -854,7 +854,7 @@ class Solver:
                 break
                 
             # Generate a random solution
-            current_solution = self.generate_initial_solution(data)
+            current_solution = self.generate_initial_solution_grasp(data)
             
             # Evaluate the solution
             current_score = current_solution.fitness_score
@@ -872,7 +872,7 @@ class Solver:
 
     def steepest_ascent_hill_climbing(self, data, total_time_ms=1000, n=5):
         start_time = time.time() * 1000
-        current_solution = self.generate_initial_solution(data)
+        current_solution = self.generate_initial_solution_grasp(data)
         best_solution = current_solution
         best_score = current_solution.fitness_score
         

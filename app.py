@@ -4,6 +4,7 @@ from models import Solver
 
 import os
 import time
+import multiprocessing
 # import tkinter as tk
 # from tkinter import messagebox
 
@@ -193,6 +194,7 @@ directory = os.listdir('input')
 #         print(f'Solution exported to ./output/best-of-two/{file}')
 
 
+
 # print("---------- MONTE CARLO SEARCH ----------")
 # for file in directory:
 #     if file.endswith('.txt'):
@@ -268,3 +270,21 @@ directory = os.listdir('input')
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
+
+# if __name__ == '__main__':
+#     print("---------- HYBRID PARALLEL EVOLUTIONARY SEARCH ----------")
+#     for file in directory:
+#         if file.endswith('.txt'):
+#             print(f'Computing ./input/{file}')
+#             parser = Parser(f'./input/{file}')
+#             data = parser.parse()
+            
+#             # Parameters matching Monte Carlo style
+#             score, solution = solver.hybrid_parallel_evolutionary_search(
+#                 data, 
+#                 num_iterations=100, 
+#                 time_limit=20
+#             )
+#             solution.export(f'./output/hybrid_evolutionary_{file}')
+#             print(f'Final score: {score:,}')
+#             print(f'Solution exported to ./output/hybrid_evolutionary_{file}')

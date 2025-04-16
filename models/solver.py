@@ -9,6 +9,9 @@ import copy
 import random
 import math
 from collections import deque
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+import multiprocessing
 
 class Solver:
     def __init__(self):
@@ -1374,3 +1377,127 @@ class Solver:
                 best_score = solution.fitness_score
         
         return (best_score, solution)
+    
+    def hybrid_parallel_evolutionary_search(self, data, num_iterations=1000, time_limit=None):
+        """
+        Hybrid algorithm combining single-state and population-based methods with parallel computation.
+        
+        Args:
+            data: The problem instance data
+            num_iterations: Maximum number of iterations to perform
+            time_limit: Maximum time to run in seconds (optional)
+            
+        Returns:
+            Tuple of (best_score, best_solution)
+        """
+        try:
+            best_solution = None
+            best_score = 0
+            start_time = time.time()
+            
+            # Initialize population
+            population = []
+            for _ in range(3):  # Small population for faster execution
+                solution = self.generate_initial_solution_grasp(data)
+                if solution is not None:  # Ensure we have a valid solution
+                    population.append(solution)
+            
+            if not population:  # If no valid solutions were generated
+                # Fallback to a simple solution
+                best_solution = self.generate_initial_solution(data)
+                best_score = best_solution.fitness_score
+                return best_score, best_solution
+            
+            iteration = 0
+            while iteration < num_iterations:
+                # Check time limit if specified
+                if time_limit and time.time() - start_time > time_limit:
+                    break
+                    
+                try:
+                    # Parallel local search for each individual
+                    with ProcessPoolExecutor() as executor:
+                        local_search_func = partial(self.parallel_local_search, data=data)
+                        improved_population = list(executor.map(local_search_func, population))
+                except Exception as e:
+                    print(f"Error in parallel execution: {e}")
+                    # Fallback to sequential execution
+                    improved_population = [self.parallel_local_search(sol, data) for sol in population]
+                
+                # Sort improved population
+                improved_population.sort(key=lambda x: x.fitness_score, reverse=True)
+                
+                # Update best solution
+                if improved_population[0].fitness_score > best_score:
+                    best_score = improved_population[0].fitness_score
+                    best_solution = copy.deepcopy(improved_population[0])
+                    
+                # Create new population
+                new_population = []
+                
+                # Keep best solution
+                new_population.append(improved_population[0])
+                
+                # Generate new solutions
+                while len(new_population) < 3:
+                    # Simple crossover between best and random solution
+                    parent1 = improved_population[0]
+                    parent2 = random.choice(improved_population)
+                    child = self.crossover(parent1, parent2, data)
+                    
+                    # Simple mutation
+                    if random.random() < 0.3:
+                        child = self.mutate_solution(child, data)
+                    
+                    new_population.append(child)
+                
+                # Update population
+                population = new_population
+                
+                iteration += 1
+                
+                # Print progress every 10 iterations
+                if iteration % 10 == 0:
+                    print(f"Iteration {iteration}, Best Score: {best_score:,}")
+            
+            if best_solution is None:  # If no solution was found
+                # Fallback to a simple solution
+                best_solution = self.generate_initial_solution(data)
+                best_score = best_solution.fitness_score
+            
+            return best_score, best_solution
+            
+        except Exception as e:
+            print(f"Error in hybrid_parallel_evolutionary_search: {e}")
+            # Fallback to a simple solution
+            fallback_solution = self.generate_initial_solution(data)
+            return fallback_solution.fitness_score, fallback_solution
+
+    def parallel_local_search(self, solution, data):
+        """Parallel local search with multiple tweak methods"""
+        best_solution = copy.deepcopy(solution)
+        
+        # Try different tweak methods
+        tweak_methods = [
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_same_books,
+            self.tweak_solution_swap_last_book
+        ]
+        
+        for tweak_method in tweak_methods:
+            new_solution = tweak_method(copy.deepcopy(best_solution), data)
+            if new_solution.fitness_score > best_solution.fitness_score:
+                best_solution = new_solution
+        
+        return best_solution
+
+    def mutate_solution(self, solution, data):
+        """Apply mutation to a solution"""
+        mutation_type = random.choice(['swap', 'insert', 'remove'])
+        
+        if mutation_type == 'swap':
+            return self.tweak_solution_swap_signed_with_unsigned(solution, data)
+        elif mutation_type == 'insert':
+            return self.tweak_solution_swap_last_book(solution, data)
+        else:
+            return self.tweak_solution_swap_neighbor_libraries(solution, data)

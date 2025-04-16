@@ -279,11 +279,10 @@ directory = os.listdir('input')
 #             parser = Parser(f'./input/{file}')
 #             data = parser.parse()
             
-#             # Parameters matching Monte Carlo style
 #             score, solution = solver.hybrid_parallel_evolutionary_search(
 #                 data, 
-#                 num_iterations=100, 
-#                 time_limit=20
+#                 num_iterations=1000, 
+#                 time_limit=60
 #             )
 #             solution.export(f'./output/hybrid_evolutionary_{file}')
 #             print(f'Final score: {score:,}')

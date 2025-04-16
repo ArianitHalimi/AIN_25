@@ -13,6 +13,11 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 import multiprocessing
 
+def _worker_init(problem_data, tweaks):
+    global WORKER_DATA, TWEAK_METHODS
+    WORKER_DATA = problem_data
+    TWEAK_METHODS = tweaks
+
 class Solver:
     def __init__(self):
         pass
@@ -1380,124 +1385,103 @@ class Solver:
     
     def hybrid_parallel_evolutionary_search(self, data, num_iterations=1000, time_limit=None):
         """
-        Hybrid algorithm combining single-state and population-based methods with parallel computation.
-        
-        Args:
-            data: The problem instance data
-            num_iterations: Maximum number of iterations to perform
-            time_limit: Maximum time to run in seconds (optional)
-            
-        Returns:
-            Tuple of (best_score, best_solution)
+        Optimized hybrid algorithm combining single-state and population-based methods
+        with parallel computation, adaptive mutation, and early stopping.
         """
-        try:
-            best_solution = None
-            best_score = 0
-            start_time = time.time()
-            
-            # Initialize population
-            population = []
-            for _ in range(3):  # Small population for faster execution
-                solution = self.generate_initial_solution_grasp(data)
-                if solution is not None:  # Ensure we have a valid solution
-                    population.append(solution)
-            
-            if not population:  # If no valid solutions were generated
-                # Fallback to a simple solution
-                best_solution = self.generate_initial_solution(data)
-                best_score = best_solution.fitness_score
-                return best_score, best_solution
-            
-            iteration = 0
-            while iteration < num_iterations:
-                # Check time limit if specified
-                if time_limit and time.time() - start_time > time_limit:
-                    break
-                    
-                try:
-                    # Parallel local search for each individual
-                    with ProcessPoolExecutor() as executor:
-                        local_search_func = partial(self.parallel_local_search, data=data)
-                        improved_population = list(executor.map(local_search_func, population))
-                except Exception as e:
-                    print(f"Error in parallel execution: {e}")
-                    # Fallback to sequential execution
-                    improved_population = [self.parallel_local_search(sol, data) for sol in population]
-                
-                # Sort improved population
-                improved_population.sort(key=lambda x: x.fitness_score, reverse=True)
-                
-                # Update best solution
-                if improved_population[0].fitness_score > best_score:
-                    best_score = improved_population[0].fitness_score
-                    best_solution = copy.deepcopy(improved_population[0])
-                    
-                # Create new population
-                new_population = []
-                
-                # Keep best solution
-                new_population.append(improved_population[0])
-                
-                # Generate new solutions
-                while len(new_population) < 3:
-                    # Simple crossover between best and random solution
-                    parent1 = improved_population[0]
-                    parent2 = random.choice(improved_population)
-                    child = self.crossover(parent1, parent2, data)
-                    
-                    # Simple mutation
-                    if random.random() < 0.3:
-                        child = self.mutate_solution(child, data)
-                    
-                    new_population.append(child)
-                
-                # Update population
-                population = new_population
-                
-                iteration += 1
-                
-                # Print progress every 10 iterations
-                if iteration % 10 == 0:
-                    print(f"Iteration {iteration}, Best Score: {best_score:,}")
-            
-            if best_solution is None:  # If no solution was found
-                # Fallback to a simple solution
-                best_solution = self.generate_initial_solution(data)
-                best_score = best_solution.fitness_score
-            
-            return best_score, best_solution
-            
-        except Exception as e:
-            print(f"Error in hybrid_parallel_evolutionary_search: {e}")
-            # Fallback to a simple solution
-            fallback_solution = self.generate_initial_solution(data)
-            return fallback_solution.fitness_score, fallback_solution
+        best_solution = None
+        best_score = 0
+        start_time = time.time()
+        stagnation_count = 0
+        max_stagnation = 50  # stop if no improvement for this many iterations
 
-    def parallel_local_search(self, solution, data):
-        """Parallel local search with multiple tweak methods"""
-        best_solution = copy.deepcopy(solution)
-        
-        # Try different tweak methods
+        # Prepare tweak methods once
         tweak_methods = [
             self.tweak_solution_swap_signed_with_unsigned,
             self.tweak_solution_swap_same_books,
             self.tweak_solution_swap_last_book
         ]
-        
-        for tweak_method in tweak_methods:
-            new_solution = tweak_method(copy.deepcopy(best_solution), data)
-            if new_solution.fitness_score > best_solution.fitness_score:
-                best_solution = new_solution
-        
-        return best_solution
 
-    def mutate_solution(self, solution, data):
-        """Apply mutation to a solution"""
-        mutation_type = random.choice(['swap', 'insert', 'remove'])
-        
-        if mutation_type == 'swap':
-            return self.tweak_solution_swap_signed_with_unsigned(solution, data)
-        elif mutation_type == 'insert':
-            return self.tweak_solution_swap_last_book(solution, data)
-        else:
-            return self.tweak_solution_swap_neighbor_libraries(solution, data)
+        # Initialize population of size 2
+        population = []
+        for _ in range(2):
+            sol = self.generate_initial_solution_grasp(data)
+            if sol:
+                population.append(sol)
+                if sol.fitness_score > best_score:
+                    best_score, best_solution = sol.fitness_score, sol
+
+        # If GRASP failed entirely, fall back to single‐state
+        if not population:
+            best_solution = self.generate_initial_solution(data)
+            best_score = best_solution.fitness_score
+            return best_score, best_solution
+
+        # Adaptive mutation rate
+        mutation_rate = 0.3
+        last_improvement = time.time()
+
+        # Start ONE pool for the whole run, pushing `data` & `tweak_methods` into each worker
+        with ProcessPoolExecutor(
+            max_workers=2,
+            initializer=_worker_init,
+            initargs=(data, tweak_methods)
+        ) as executor:
+            iteration = 0
+            while iteration < num_iterations:
+                # time‐limit check
+                if time_limit and (time.time() - start_time) > time_limit:
+                    break
+
+                # adapt mutation rate based on recent progress
+                if time.time() - last_improvement > 10:
+                    mutation_rate = min(0.5, mutation_rate * 1.1)
+                else:
+                    mutation_rate = max(0.1, mutation_rate * 0.95)
+
+                # PARALLEL LOCAL SEARCH
+                try:
+                    improved = list(executor.map(
+                        self.parallel_local_search,
+                        population,
+                        chunksize=1
+                    ))
+                except Exception:
+                    # fallback to serial if something goes wrong
+                    improved = [self.parallel_local_search(sol, data) for sol in population]
+
+                # select and record best
+                improved.sort(key=lambda x: x.fitness_score, reverse=True)
+                current_best = improved[0]
+                if current_best.fitness_score > best_score:
+                    best_score = current_best.fitness_score
+                    best_solution = current_best
+                    stagnation_count = 0
+                    last_improvement = time.time()
+                else:
+                    stagnation_count += 1
+
+                # early stop on stagnation
+                if stagnation_count >= max_stagnation:
+                    print(f"Early stopping at iteration {iteration} due to stagnation")
+                    break
+
+                # generate next generation (elitism + one child)
+                new_population = [current_best]
+                parent2 = random.choice(improved)
+                child = self.crossover(current_best, parent2, data)
+                if random.random() < mutation_rate:
+                    child = self.mutate_solution(child, data)
+                new_population.append(child)
+                population = new_population
+
+                iteration += 1
+                if iteration % 50 == 0:
+                    elapsed = time.time() - start_time
+                    print(f"Iteration {iteration}, Best Score: {best_score:,}, Time: {elapsed:.1f}s")
+
+        # final fallback if nothing ever set best_solution
+        if best_solution is None:
+            best_solution = self.generate_initial_solution(data)
+            best_score = best_solution.fitness_score
+
+        return best_score, best_solution

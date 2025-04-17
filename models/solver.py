@@ -1511,7 +1511,7 @@ class Solver:
         """Select a solution using tournament selection."""
         tournament_size  = 2
         tournament = random.sample(population, tournament_size)
-        return max(tournament, key=lambda x: x.fitness_score)    
+        return max(tournament, key=lambda x: x.fitness_score)
     
     def great_deluge_algorithm(self, data, max_time=300, max_iterations=1000, delta_B=None):
         """

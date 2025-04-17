@@ -9,12 +9,32 @@ import copy
 import random
 import math
 from collections import deque
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+import multiprocessing
+from typing import Tuple
+from models.instance_data import InstanceData
+
+def _pool_init(instance_data: InstanceData, hc_steps: int, mutation_prob: float):
+    global INSTANCE, HC_STEPS, MUT_PROB, SOLVER
+    INSTANCE    = instance_data
+    HC_STEPS    = hc_steps
+    MUT_PROB    = mutation_prob
+    SOLVER      = Solver()
+
+def _process_offspring(sol: Solution) -> Solution:
+    """In‐place mutation + hill‐climb on one offspring."""
+    if random.random() < MUT_PROB:
+        _, sol = SOLVER.hill_climbing_combined_w_initial_solution(sol, INSTANCE, iterations=HC_STEPS)
+    return sol
 
 class Solver:
     def __init__(self):
         pass
-
+    
     def generate_initial_solution(self, data):
+        Library._id_counter = 0
+        
         shuffled_libs = data.libs.copy()
         random.shuffle(shuffled_libs)
 
@@ -177,7 +197,7 @@ class Solver:
         return new_solution
 
     def hill_climbing_swap_signed(self, data, iterations = 1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
         for i in range(iterations):
             solution_clone = copy.deepcopy(solution)
             new_solution = self.tweak_solution_swap_signed(solution_clone, data)
@@ -279,7 +299,7 @@ class Solver:
         return new_solution
 
     def hill_climbing_swap_signed_with_unsigned(self, data, iterations=1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations - 1):
             new_solution = self.tweak_solution_swap_signed_with_unsigned(solution, data)
@@ -292,10 +312,10 @@ class Solver:
         return (solution.fitness_score, solution)
 
     def random_search(self, data, iterations = 1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations - 1):
-            new_solution = self.generate_initial_solution(data)
+            new_solution = self.generate_initial_solution_grasp(data)
 
             if new_solution.fitness_score > solution.fitness_score:
                 solution = new_solution
@@ -359,7 +379,7 @@ class Solver:
 
     def hill_climbing_swap_same_books(self, data, iterations = 1000):
         Library._id_counter = 0
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations):
             new_solution = self.tweak_solution_swap_same_books(solution, data)
@@ -370,13 +390,15 @@ class Solver:
         return (solution.fitness_score, solution)
 
     def hill_climbing_combined(self, data, iterations = 1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         list_of_climbs = [
             self.tweak_solution_swap_signed_with_unsigned,
             self.tweak_solution_swap_same_books,
             self.tweak_solution_swap_signed,
-            self.tweak_solution_swap_last_book
+            self.tweak_solution_swap_last_book,
+            self.tweak_solution_swap_neighbor_libraries,
+            self.tweak_solution_insert_library,
         ]
 
         for i in range(iterations - 1):
@@ -456,7 +478,7 @@ class Solver:
         return new_solution
 
     def hill_climbing_swap_last_book(self, data, iterations=1000):
-        solution = self.generate_initial_solution(data)
+        solution = self.generate_initial_solution_grasp(data)
 
         for i in range(iterations - 1):
             new_solution = self.tweak_solution_swap_last_book(solution, data)
@@ -633,6 +655,7 @@ class Solver:
         return sum(book.score for book in data.books.values())
 
     def hill_climbing_with_random_restarts(self, data, total_time_ms=1000):
+        Library._id_counter = 0
     # Lightweight solution representation
         def create_light_solution(solution):
             return {
@@ -642,7 +665,7 @@ class Solver:
             }
 
         # Initialize
-        current = create_light_solution(self.generate_initial_solution(data))
+        current = create_light_solution(self.generate_initial_solution_grasp(data))
         best = current.copy()
         tweak_functions = [
             self.tweak_solution_swap_signed_with_unsigned,
@@ -665,7 +688,7 @@ class Solver:
             time_limit = (time.time() + random.choice(time_distribution) / 1000)
             
             # Reset current solution for this restart
-            current = create_light_solution(self.generate_initial_solution(data))
+            current = create_light_solution(self.generate_initial_solution_grasp(data))
             temperature = 1000  # Reset temperature for each restart
             
             # Inner loop for this restart period
@@ -752,6 +775,71 @@ class Solver:
                 Best = copy.deepcopy(S)
 
         return Best
+    
+    def feature_based_tabu_search(self, initial_solution, data, tabu_max_len=10, n=5, max_iterations=100):
+        from time import perf_counter
+
+        S = copy.deepcopy(initial_solution)
+        S.calculate_fitness_score(data.scores)
+        Best = copy.deepcopy(S)
+
+        L = deque(maxlen=tabu_max_len)  # Stores (signature, timestamp)
+        tabu_set = set()  # Faster lookup than looping over deque
+        c = 0
+        sig_S = self._get_signature(S)
+        L.append((sig_S, c))
+        tabu_set.add(sig_S)
+
+        tweak_functions = [
+            self.tweak_solution_swap_last_book,
+            self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_same_books
+        ]
+
+        def tweak_avoiding_tabu(S_ref, L_set):
+            max_attempts = 10
+            for _ in range(max_attempts):
+                tweak = random.choice(tweak_functions)
+                try:
+                    S_copy = copy.deepcopy(S_ref)
+                    R = tweak(S_copy, data)
+                    sig = self._get_signature(R)
+                    if sig not in L_set:
+                        return R, [sig]
+                except:
+                    continue
+            # fallback
+            fallback_copy = copy.deepcopy(S_ref)
+            return fallback_copy, [self._get_signature(fallback_copy)]
+
+        for iteration in range(max_iterations):
+            c += 1
+            # Clean old tabu entries
+            L = deque([(feature, ts) for feature, ts in L if c - ts <= tabu_max_len], maxlen=tabu_max_len)
+            tabu_set = set(f for f, _ in L)
+
+            R, modified_features_R = tweak_avoiding_tabu(S, tabu_set)
+
+            for _ in range(n - 1):
+                W, modified_features_W = tweak_avoiding_tabu(S, tabu_set)
+                if W.fitness_score > R.fitness_score:
+                    R = W
+                    modified_features_R = modified_features_W
+
+            if R.fitness_score > S.fitness_score:
+                S = R
+                for feature in modified_features_R:
+                    L.append((feature, c))
+                    tabu_set.add(feature)
+
+                if S.fitness_score > Best.fitness_score:
+                    Best = copy.deepcopy(S)
+
+            # Optional: remove this if you don't need runtime feedback
+            # print(f"Iter {iteration}: Current = {S.fitness_score}, Best = {Best.fitness_score}")
+
+        return Best
 
     def simulated_annealing_with_cutoff(self, data, total_time_ms=1000, max_steps=10000):
         # Lightweight solution representation
@@ -763,7 +851,7 @@ class Solver:
             }
 
         # Initialize
-        current = create_light_solution(self.generate_initial_solution(data))
+        current = create_light_solution(self.generate_initial_solution_grasp(data))
         best = current.copy()
         tweak_functions = [
             self.tweak_solution_swap_signed_with_unsigned,
@@ -854,7 +942,7 @@ class Solver:
                 break
                 
             # Generate a random solution
-            current_solution = self.generate_initial_solution(data)
+            current_solution = self.generate_initial_solution_grasp(data)
             
             # Evaluate the solution
             current_score = current_solution.fitness_score
@@ -872,7 +960,7 @@ class Solver:
 
     def steepest_ascent_hill_climbing(self, data, total_time_ms=1000, n=5):
         start_time = time.time() * 1000
-        current_solution = self.generate_initial_solution(data)
+        current_solution = self.generate_initial_solution_grasp(data)
         best_solution = current_solution
         best_score = current_solution.fitness_score
         
@@ -1100,6 +1188,331 @@ class Solver:
         solution.calculate_fitness_score(data.scores)
         
         return solution
+
+    def guided_local_search(self, data, max_time=300, max_iterations=1000):
+        C = set(range(len(data.libs)))  # Set of all possible library indices
+        
+        T = list(range(5, 31, 5))  # Time intervals from 5 to 30 seconds in steps of 5
+        
+        p = [0] * len(data.libs)
+        
+        S = self.generate_initial_solution(data)
+        
+        Best = copy.deepcopy(S)
+        
+        start_time = time.time()
+        iteration = 0
+        
+        while time.time() - start_time < max_time and iteration < max_iterations:
+            local_time_limit = time.time() + random.choice(T)
+            
+            while time.time() < local_time_limit and time.time() - start_time < max_time:
+                R = self.tweak_solution_swap_signed_with_unsigned(copy.deepcopy(S), data)
+                
+                if R.fitness_score > Best.fitness_score:
+                    Best = copy.deepcopy(R)
+                    print(f"New best score: {Best.fitness_score:,} at iteration {iteration}")
+                
+                R_quality = R.fitness_score - sum(p[i] for i in R.signed_libraries if i in C)
+                S_quality = S.fitness_score - sum(p[i] for i in S.signed_libraries if i in C)
+                if R_quality > S_quality:
+                    S = copy.deepcopy(R)
+                
+                if Best.fitness_score >= data.calculate_upper_bound():
+                    return Best
+            
+            C_prime = set()
+            
+            for Ci in S.signed_libraries:
+                if Ci not in C:
+                    continue
+                    
+                is_most_penalizable = True
+                Ci_utility = sum(data.scores[book.id] for book in data.libs[Ci].books)
+                Ci_penalizability = Ci_utility / (1 + p[Ci])
+                
+                for Cj in S.signed_libraries:
+                    if Cj == Ci or Cj not in C:
+                        continue
+                    Cj_utility = sum(data.scores[book.id] for book in data.libs[Cj].books)
+                    Cj_penalizability = Cj_utility / (1 + p[Cj])
+                    if Cj_penalizability > Ci_penalizability:
+                        is_most_penalizable = False
+                        break
+                
+                if is_most_penalizable:
+                    C_prime.add(Ci)
+            
+            for Ci in S.signed_libraries:
+                if Ci in C_prime:
+                    p[Ci] += 1
+            
+            iteration += 1
+            
+            if iteration % 100 == 0:
+                elapsed = time.time() - start_time
+                print(f"Iteration {iteration}, Time: {elapsed:.2f}s, Best score: {Best.fitness_score:,}")
+        
+        print(f"Search completed after {iteration} iterations and {time.time() - start_time:.2f} seconds")
+        return Best
+
+    def hill_climbing_insert_library(self, data, iterations=1000):
+        Library._id_counter = 0
+
+        valid_library_ids = set(range(len(data.libs)))
+
+        if isinstance(data.book_libs, list):
+            book_libs_dict = {}
+            for book_id, lib_ids in enumerate(data.book_libs):
+                if isinstance(lib_ids, (list, tuple)):
+                    book_libs_dict[book_id] = [
+                        lib_id for lib_id in lib_ids
+                        if lib_id in valid_library_ids
+                    ]
+            data.book_libs = book_libs_dict
+        elif hasattr(data, 'book_libs') and isinstance(data.book_libs, dict):
+            cleaned_book_libs = {}
+            for book_id, lib_ids in data.book_libs.items():
+                if isinstance(lib_ids, (list, tuple)):
+                    cleaned_book_libs[book_id] = [
+                        lib_id for lib_id in lib_ids
+                        if lib_id in valid_library_ids
+                    ]
+            data.book_libs = cleaned_book_libs
+        else:
+            raise ValueError("data.book_libs must be either a list or dictionary")
+
+        solution = self.generate_initial_solution(data)
+        solution.unsigned_libraries = [
+            lib_id for lib_id in solution.unsigned_libraries
+            if lib_id in valid_library_ids
+        ]
+
+        for _ in range(iterations):
+            new_solution = self.tweak_solution_insert_library(solution, data)
+            
+            if new_solution.fitness_score > solution.fitness_score:
+                solution = new_solution
+
+        return solution.fitness_score, solution
+
+    def tweak_solution_insert_library(self, solution, data):
+        if not solution.unsigned_libraries:
+            return solution
+
+        new_solution = copy.deepcopy(solution)
+        
+        curr_time = sum(data.libs[lib_id].signup_days for lib_id in new_solution.signed_libraries)
+        
+        for _ in range(len(new_solution.unsigned_libraries)):
+            insert_idx = random.randint(0, len(new_solution.unsigned_libraries) - 1)
+            new_lib_id = new_solution.unsigned_libraries[insert_idx]
+            
+            if curr_time + data.libs[new_lib_id].signup_days >= data.num_days:
+                continue
+                
+            time_left = data.num_days - (curr_time + data.libs[new_lib_id].signup_days)
+            max_books_scanned = time_left * data.libs[new_lib_id].books_per_day
+            
+            available_books = sorted(
+                {book.id for book in data.libs[new_lib_id].books} - new_solution.scanned_books,
+                key=lambda b: -data.scores[b]
+            )[:max_books_scanned]
+            
+            if available_books:
+                insert_pos = random.randint(0, len(new_solution.signed_libraries))
+                new_solution.signed_libraries.insert(insert_pos, new_lib_id)
+                new_solution.unsigned_libraries.pop(insert_idx)
+                
+                new_solution.scanned_books_per_library[new_lib_id] = available_books
+                new_solution.scanned_books.update(available_books)
+                
+                new_solution.calculate_fitness_score(data.scores)
+                return new_solution
+        
+        return solution
+
+    def tweak_solution_swap_neighbor_libraries(self, solution, data):
+        """Swaps two adjacent libraries in the signed list to create a neighbor solution."""
+        if len(solution.signed_libraries) < 2:
+            return solution
+
+        new_solution = copy.deepcopy(solution)
+        swap_pos = random.randint(0, len(new_solution.signed_libraries) - 2)
+        
+        # Swap adjacent libraries
+        new_solution.signed_libraries[swap_pos], new_solution.signed_libraries[swap_pos + 1] = \
+            new_solution.signed_libraries[swap_pos + 1], new_solution.signed_libraries[swap_pos]
+        
+        curr_time = 0
+        scanned_books = set()
+        new_scanned_books_per_library = {}
+        
+        # Process libraries before swap point
+        for i in range(swap_pos):
+            lib_id = new_solution.signed_libraries[i]
+            if lib_id >= len(data.libs):  # Safety check
+                continue
+            library = data.libs[lib_id]
+            curr_time += library.signup_days
+            
+            if lib_id in solution.scanned_books_per_library:
+                books = solution.scanned_books_per_library[lib_id]
+                new_scanned_books_per_library[lib_id] = books
+                scanned_books.update(books)
+        
+        # Re-process from swap point
+        i = swap_pos
+        while i < len(new_solution.signed_libraries):
+            lib_id = new_solution.signed_libraries[i]
+            if lib_id >= len(data.libs):  # Skip invalid library IDs
+                new_solution.unsigned_libraries.append(lib_id)
+                new_solution.signed_libraries.pop(i)
+                continue
+                
+            library = data.libs[lib_id]
+            
+            if curr_time + library.signup_days >= data.num_days:
+                new_solution.unsigned_libraries.extend(new_solution.signed_libraries[i:])
+                new_solution.signed_libraries = new_solution.signed_libraries[:i]
+                break
+                
+            time_left = data.num_days - (curr_time + library.signup_days)
+            max_books_scanned = time_left * library.books_per_day
+            
+            available_books = sorted(
+                {book.id for book in library.books} - scanned_books,
+                key=lambda b: -data.scores[b]
+            )[:max_books_scanned]
+            
+            if available_books:
+                new_scanned_books_per_library[lib_id] = available_books
+                scanned_books.update(available_books)
+                curr_time += library.signup_days
+                i += 1
+            else:
+                new_solution.unsigned_libraries.append(lib_id)
+                new_solution.signed_libraries.pop(i)
+        
+        new_solution.scanned_books_per_library = new_scanned_books_per_library
+        new_solution.scanned_books = scanned_books
+        new_solution.calculate_fitness_score(data.scores)
+        
+        return new_solution
+ 
+    def hill_climbing_swap_neighbors(self, data, iterations=1000):
+        solution = self.generate_initial_solution(data)
+        best_score = solution.fitness_score
+         
+        for _ in range(iterations):
+            new_solution = self.tweak_solution_swap_neighbor_libraries(solution, data)
+            
+            if new_solution.fitness_score > solution.fitness_score:
+                solution = new_solution
+                best_score = solution.fitness_score
+        
+        return (best_score, solution)
+    
+    def hybrid_parallel_evolutionary_search(
+        self,
+        data: InstanceData,
+        num_iterations: int = 1000,
+        time_limit: float = None
+    ) -> Tuple[float, Solution]:
+        """
+        Optimized hybrid GA: population-based crossover + parallel hill-climbing mutations,
+        adaptive stagnation, and early stopping.
+        """
+        best_solution   = None
+        best_score      = 0.0
+        start_time      = time.time()
+        stagnation_cnt  = 0
+        max_stagnation  = 50
+        
+        population_size  = 4
+        tour_size        = 2
+        mutation_prob    = 0.3
+        hill_climb_steps = 50
+
+        # 1) Initialize population
+        population = self.initialize_population(self.generate_initial_solution_grasp, data)
+
+        # record initial best
+        for sol in population:
+            if sol.fitness_score > best_score:
+                best_score, best_solution = sol.fitness_score, sol
+
+        # 2) Launch pool once for all generations
+        with ProcessPoolExecutor(
+            max_workers=max(1, population_size // 2),
+            initializer=_pool_init,
+            initargs=(data, hill_climb_steps, mutation_prob)
+        ) as executor:
+
+            iteration = 0
+            while iteration < num_iterations:
+                # time limit?
+                if time_limit and (time.time() - start_time) > time_limit:
+                    break
+
+                # sort & evaluate
+                population.sort(key=lambda s: s.fitness_score, reverse=True)
+                current_best = population[0]
+
+                # update best / stagnation
+                if current_best.fitness_score > best_score:
+                    best_score, best_solution = current_best.fitness_score, current_best
+                    stagnation_cnt = 0
+                else:
+                    stagnation_cnt += 1
+
+                # early stop?
+                if stagnation_cnt >= max_stagnation:
+                    print(f"Early stopping at iteration {iteration} due to no improvement")
+                    break
+
+                # build next generation
+                new_pop = [current_best]  # elitism
+
+                # generate raw offspring
+                raw_offspring = []
+                while len(raw_offspring) < population_size - 1:
+                    p1 = self.tournament_select(population)
+                    p2 = self.tournament_select(population)
+                    o1, o2 = self.crossover(p1, p2)
+                    raw_offspring.append(o1)
+                    if len(raw_offspring) < population_size - 1:
+                        raw_offspring.append(o2)
+
+                # parallel mutation + hill‑climb
+                offspring = list(executor.map(_process_offspring, raw_offspring, chunksize=1))
+
+                new_pop.extend(offspring)
+                population = new_pop
+
+                iteration += 1
+                if iteration % 50 == 0:
+                    elapsed = time.time() - start_time
+                    print(f"Iteration {iteration}, Best Score: {best_score:,}, Time: {elapsed:.1f}s")
+
+        # final fallback
+        if best_solution is None:
+            best_solution = self.generate_initial_solution_grasp(data)
+            best_score    = best_solution.fitness_score
+
+        return best_score, best_solution
+
+    def initialize_population(self, initializer, data):
+        """Initialize population using the provided initializer function."""
+        population_size = 4
+        return [initializer(data) for _ in range(population_size)]
+
+    def tournament_select(self, population):
+        """Select a solution using tournament selection."""
+        tournament_size  = 2
+        tournament = random.sample(population, tournament_size)
+        return max(tournament, key=lambda x: x.fitness_score)    
+    
     def great_deluge_algorithm(self, data, max_time=300, max_iterations=1000, delta_B=None):
         current_solution = self.generate_initial_solution(data)
         current_score = current_solution.fitness_score

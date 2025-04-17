@@ -1190,70 +1190,128 @@ class Solver:
         return solution
 
     def guided_local_search(self, data, max_time=300, max_iterations=1000):
-        C = set(range(len(data.libs)))  # Set of all possible library indices
+        C = set(range(len(data.libs)))  # all possible library IDs
         
-        T = list(range(5, 31, 5))  # Time intervals from 5 to 30 seconds in steps of 5
+        T = list(range(5, 16, 5))  # Shorter time intervals (5, 10, 15 seconds) for more frequent updates
         
         p = [0] * len(data.libs)
         
-        S = self.generate_initial_solution(data)
+        component_utilities = {
+            i: sum(data.scores[book.id] for book in data.libs[i].books)
+            for i in C
+        }
+        
+        S = self.generate_initial_solution_grasp(data, p=0.1)  # more randomized initial solution
         
         Best = copy.deepcopy(S)
         
         start_time = time.time()
-        iteration = 0
+        stagnation_count = 0
+        last_improvement_time = start_time
+        iteration_count = 0
         
-        while time.time() - start_time < max_time and iteration < max_iterations:
-            local_time_limit = time.time() + random.choice(T)
+        # repeat until max time or iterations reached
+        while time.time() - start_time < max_time and iteration_count < max_iterations:
+            iteration_count += 1
             
-            while time.time() < local_time_limit and time.time() - start_time < max_time:
-                R = self.tweak_solution_swap_signed_with_unsigned(copy.deepcopy(S), data)
+            local_time_limit = time.time() + random.choice(T)
+            local_best = copy.deepcopy(S)
+            local_iterations = 0
+            max_local_iterations = 50
+            
+            while time.time() < local_time_limit and local_iterations < max_local_iterations:
+                local_iterations += 1
                 
-                if R.fitness_score > Best.fitness_score:
-                    Best = copy.deepcopy(R)
-                    print(f"New best score: {Best.fitness_score:,} at iteration {iteration}")
+                for _ in range(3):
+                    available_components = C - set(S.signed_libraries)
+                    if available_components:
+                        adjusted_utilities = {
+                            c: component_utilities[c] / (1 + p[c])
+                            for c in available_components
+                        }
+                        selected_component = max(adjusted_utilities.items(), key=lambda x: x[1])[0]
+                        
+                        tweak_function = random.choice([
+                            self.tweak_solution_swap_signed_with_unsigned,
+                            self.tweak_solution_swap_same_books,
+                            self.tweak_solution_swap_signed,
+                            self.tweak_solution_swap_last_book,
+                            self.tweak_solution_swap_neighbor_libraries,
+                            self.tweak_solution_insert_library
+                        ])
+                        R = tweak_function(copy.deepcopy(S), data)
+                        
+                        if tweak_function == self.tweak_solution_insert_library:
+                            R = self.tweak_solution_insert_library(S, data, target_lib=selected_component)
+                    else:
+                        tweak_function = random.choice([
+                            self.tweak_solution_swap_signed_with_unsigned,
+                            self.tweak_solution_swap_same_books,
+                            self.tweak_solution_swap_signed,
+                            self.tweak_solution_swap_last_book,
+                            self.tweak_solution_swap_neighbor_libraries
+                        ])
+                        R = tweak_function(copy.deepcopy(S), data)
+                    
+                    if R.fitness_score > Best.fitness_score:
+                        Best = copy.deepcopy(R)
+                        print(f"New best score: {Best.fitness_score:,} (iteration {iteration_count})")
+                        last_improvement_time = time.time()
+                        stagnation_count = 0
+                    
+                    R_quality = R.fitness_score - sum(p[i] for i in R.signed_libraries)
+                    S_quality = S.fitness_score - sum(p[i] for i in S.signed_libraries)
+                    if R_quality > S_quality:
+                        S = copy.deepcopy(R)
+                        if R.fitness_score > local_best.fitness_score:
+                            local_best = copy.deepcopy(R)
                 
-                R_quality = R.fitness_score - sum(p[i] for i in R.signed_libraries if i in C)
-                S_quality = S.fitness_score - sum(p[i] for i in S.signed_libraries if i in C)
-                if R_quality > S_quality:
-                    S = copy.deepcopy(R)
-                
-                if Best.fitness_score >= data.calculate_upper_bound():
-                    return Best
+                if (Best.fitness_score >= data.calculate_upper_bound() or 
+                    time.time() - start_time >= max_time or 
+                    iteration_count >= max_iterations):
+                    break
+            
+            if local_best.fitness_score <= S.fitness_score:
+                stagnation_count += 1
             
             C_prime = set()
             
-            for Ci in S.signed_libraries:
-                if Ci not in C:
-                    continue
-                    
+            current_components = set(S.signed_libraries) & C
+            for Ci in current_components:
                 is_most_penalizable = True
-                Ci_utility = sum(data.scores[book.id] for book in data.libs[Ci].books)
+                Ci_utility = component_utilities[Ci]
                 Ci_penalizability = Ci_utility / (1 + p[Ci])
                 
-                for Cj in S.signed_libraries:
-                    if Cj == Ci or Cj not in C:
-                        continue
-                    Cj_utility = sum(data.scores[book.id] for book in data.libs[Cj].books)
-                    Cj_penalizability = Cj_utility / (1 + p[Cj])
-                    if Cj_penalizability > Ci_penalizability:
-                        is_most_penalizable = False
-                        break
+                for Cj in current_components:
+                    if Cj != Ci:
+                        Cj_utility = component_utilities[Cj]
+                        Cj_penalizability = Cj_utility / (1 + p[Cj])
+                        if Cj_penalizability > Ci_penalizability:
+                            is_most_penalizable = False
+                            break
                 
                 if is_most_penalizable:
                     C_prime.add(Ci)
             
-            for Ci in S.signed_libraries:
-                if Ci in C_prime:
-                    p[Ci] += 1
+            for Ci in C_prime:
+                p[Ci] += 1
             
-            iteration += 1
+            if stagnation_count > 10:
+                print(f"Resetting search due to stagnation (iteration {iteration_count})...")
+                p = [0] * len(data.libs)
+                S = self.generate_initial_solution_grasp(data, p=0.2)
+                stagnation_count = 0
             
-            if iteration % 100 == 0:
+            if len(C_prime) > 0:
                 elapsed = time.time() - start_time
-                print(f"Iteration {iteration}, Time: {elapsed:.2f}s, Best score: {Best.fitness_score:,}")
+                print(f"Time: {elapsed:.2f}s, Iteration: {iteration_count}/{max_iterations}, Best score: {Best.fitness_score:,}")
+                print(f"Penalized {len(C_prime)} components, Total penalties: {sum(p)}")
+            
+            if (Best.fitness_score >= data.calculate_upper_bound() or 
+                time.time() - last_improvement_time > 60):
+                break
         
-        print(f"Search completed after {iteration} iterations and {time.time() - start_time:.2f} seconds")
+        print(f"Search completed after {time.time() - start_time:.2f} seconds and {iteration_count} iterations")
         return Best
 
     def hill_climbing_insert_library(self, data, iterations=1000):
@@ -1296,39 +1354,51 @@ class Solver:
 
         return solution.fitness_score, solution
 
-    def tweak_solution_insert_library(self, solution, data):
-        if not solution.unsigned_libraries:
+    def tweak_solution_insert_library(self, solution, data, target_lib=None):
+        if not solution.unsigned_libraries and target_lib is None:
             return solution
 
         new_solution = copy.deepcopy(solution)
-        
         curr_time = sum(data.libs[lib_id].signup_days for lib_id in new_solution.signed_libraries)
         
-        for _ in range(len(new_solution.unsigned_libraries)):
+        if target_lib is not None and target_lib not in new_solution.signed_libraries:
+            lib_to_insert = target_lib
+        else:
+            if not new_solution.unsigned_libraries:
+                return solution
             insert_idx = random.randint(0, len(new_solution.unsigned_libraries) - 1)
-            new_lib_id = new_solution.unsigned_libraries[insert_idx]
+            lib_to_insert = new_solution.unsigned_libraries[insert_idx]
+            new_solution.unsigned_libraries.pop(insert_idx)
+
+        if curr_time + data.libs[lib_to_insert].signup_days >= data.num_days:
+            return solution
             
-            if curr_time + data.libs[new_lib_id].signup_days >= data.num_days:
-                continue
-                
-            time_left = data.num_days - (curr_time + data.libs[new_lib_id].signup_days)
-            max_books_scanned = time_left * data.libs[new_lib_id].books_per_day
+        time_left = data.num_days - (curr_time + data.libs[lib_to_insert].signup_days)
+        max_books_scanned = time_left * data.libs[lib_to_insert].books_per_day
+        
+        available_books = sorted(
+            {book.id for book in data.libs[lib_to_insert].books} - new_solution.scanned_books,
+            key=lambda b: -data.scores[b]
+        )[:max_books_scanned]
+        
+        if available_books:
+            best_pos = len(new_solution.signed_libraries)
+            best_score = 0
+            best_solution = None
             
-            available_books = sorted(
-                {book.id for book in data.libs[new_lib_id].books} - new_solution.scanned_books,
-                key=lambda b: -data.scores[b]
-            )[:max_books_scanned]
+            for pos in range(len(new_solution.signed_libraries) + 1):
+                test_solution = copy.deepcopy(new_solution)
+                test_solution.signed_libraries.insert(pos, lib_to_insert)
+                test_solution.scanned_books_per_library[lib_to_insert] = available_books
+                test_solution.scanned_books.update(available_books)
+                test_solution.calculate_fitness_score(data.scores)
+                
+                if test_solution.fitness_score > best_score:
+                    best_score = test_solution.fitness_score
+                    best_pos = pos
+                    best_solution = test_solution
             
-            if available_books:
-                insert_pos = random.randint(0, len(new_solution.signed_libraries))
-                new_solution.signed_libraries.insert(insert_pos, new_lib_id)
-                new_solution.unsigned_libraries.pop(insert_idx)
-                
-                new_solution.scanned_books_per_library[new_lib_id] = available_books
-                new_solution.scanned_books.update(available_books)
-                
-                new_solution.calculate_fitness_score(data.scores)
-                return new_solution
+            return best_solution if best_solution else solution
         
         return solution
 

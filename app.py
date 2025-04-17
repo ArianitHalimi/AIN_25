@@ -138,12 +138,29 @@ directory = os.listdir('input')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         solver = Solver()
-#         initial_solution = solver.generate_initial_solution(data)
+#         initial_solution = solver.generate_initial_solution_grasp(data)
 #         optimized_solution = solver.tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
 
 #         # optimized_solution.export('./output/output.txt')
 
 #         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+
+
+print("---------- Feature-based Tabu Search ----------")
+
+for file in directory:
+
+    if file.endswith('.txt'):
+        parser = Parser(f'./input/{file}')
+        data = parser.parse()
+        solver = Solver()
+        initial_solution = solver.generate_initial_solution_grasp(data)
+        optimized_solution = solver.feature_based_tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
+
+        # optimized_solution.export('./output/output.txt')
+
+        print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+
 
 # print("---------- ITERATED LOCAL SEARCH WITH RANDOM RESTARTS ----------")
 # for file in directory:
@@ -271,19 +288,19 @@ directory = os.listdir('input')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
-if __name__ == '__main__':
-    print("---------- HYBRID PARALLEL EVOLUTIONARY SEARCH ----------")
-    for file in directory:
-        if file.endswith('.txt'):
-            print(f'Computing ./input/{file}')
-            parser = Parser(f'./input/{file}')
-            data = parser.parse()
+# if __name__ == '__main__':
+#     print("---------- HYBRID PARALLEL EVOLUTIONARY SEARCH ----------")
+#     for file in directory:
+#         if file.endswith('.txt'):
+#             print(f'Computing ./input/{file}')
+#             parser = Parser(f'./input/{file}')
+#             data = parser.parse()
             
-            score, solution = solver.hybrid_parallel_evolutionary_search(
-                data, 
-                num_iterations=1000, 
-                time_limit=60
-            )
-            solution.export(f'./output/hybrid_evolutionary_{file}')
-            print(f'Final score: {score:,}')
-            print(f'Solution exported to ./output/hybrid_evolutionary_{file}')
+#             score, solution = solver.hybrid_parallel_evolutionary_search(
+#                 data, 
+#                 num_iterations=1000, 
+#                 time_limit=60
+#             )
+#             solution.export(f'./output/hybrid_evolutionary_{file}')
+#             print(f'Final score: {score:,}')
+#             print(f'Solution exported to ./output/hybrid_evolutionary_{file}')

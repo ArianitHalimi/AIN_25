@@ -4,6 +4,7 @@ from models import Solver
 
 import os
 import time
+import multiprocessing
 # import tkinter as tk
 # from tkinter import messagebox
 
@@ -51,15 +52,14 @@ directory = os.listdir('input')
 #
 # solution.export('./output/output.txt')
 
-# files = ['f_libraries_of_the_world.txt','d_tough_choices.txt']
-# for file in directory:
+# files = ['a_example.txt','b_read_on.txt']
+# for file in files:
 #     if file.endswith('.txt'):
 #         print(f'Computing ./input/{file}')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         solution = solver.hill_climbing_combined(data)
-#         print(solution)
-
+#         print(solution[0])
 
 # results = []
 # for file in directory:
@@ -138,12 +138,29 @@ directory = os.listdir('input')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
 #         solver = Solver()
-#         initial_solution = solver.generate_initial_solution(data)
+#         initial_solution = solver.generate_initial_solution_grasp(data)
 #         optimized_solution = solver.tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
 
 #         # optimized_solution.export('./output/output.txt')
 
 #         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+
+
+print("---------- Feature-based Tabu Search ----------")
+
+for file in directory:
+
+    if file.endswith('.txt'):
+        parser = Parser(f'./input/{file}')
+        data = parser.parse()
+        solver = Solver()
+        initial_solution = solver.generate_initial_solution_grasp(data)
+        optimized_solution = solver.feature_based_tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
+
+        # optimized_solution.export('./output/output.txt')
+
+        print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+
 
 # print("---------- ITERATED LOCAL SEARCH WITH RANDOM RESTARTS ----------")
 # for file in directory:
@@ -194,6 +211,7 @@ directory = os.listdir('input')
 #         print(f'Solution exported to ./output/best-of-two/{file}')
 
 
+
 # print("---------- MONTE CARLO SEARCH ----------")
 # for file in directory:
 #     if file.endswith('.txt'):
@@ -220,20 +238,20 @@ directory = os.listdir('input')
 #         print(f'Final score for {file}: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
-print("---------- GUIDED LOCAL SEARCH ----------")
-for file in directory:
-    if file.endswith('.txt'):
-        print(f'Processing file: {file}')
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
+# print("---------- GUIDED LOCAL SEARCH ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Processing file: {file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
 
-        # Call the guided local search function
-        solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
+#         # Call the guided local search function
+#         solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
 
-        # Export the solution
-        solution.export(f'./output/gls_{file}')
-        print(f'Final score for {file}: {solution.fitness_score:,}')
-        print(f'Solution exported to ./output/gls_{file}')
+#         # Export the solution
+#         solution.export(f'./output/gls_{file}')
+#         print(f'Final score for {file}: {solution.fitness_score:,}')
+#         print(f'Solution exported to ./output/gls_{file}')
 
 
 
@@ -269,3 +287,89 @@ for file in directory:
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
+
+input_folder = './input'
+output_folder = './output'
+os.makedirs(output_folder, exist_ok=True)
+
+# instance_files = [
+#     'UPFIEK.txt',
+#     'a_example.txt',
+#     'b_read_on.txt',
+#     'c_incunabula.txt',
+#     'd_tough_choices.txt',
+#     'e_so_many_books.txt',
+#     'f_libraries_of_the_world.txt',
+#     'Toy instance.txt',
+#     'B5000_L90_D21.txt',
+#     'B50000_L400_D28.txt',
+#     'B100000_L600_D28.txt',
+#     'B90000_L850_D21.txt',
+#     'B95000_L2000_D28.txt',
+#     'switch_book_instance.txt'
+# ]
+
+print("---------- VARIABLE NEIGHBORHOOD SEARCH ----------")
+
+for filename in os.listdir(input_folder):
+    if filename.endswith('.txt'):
+        input_path = os.path.join(input_folder, filename)
+        output_path = os.path.join(output_folder, f'vns_{filename}')
+
+        try:
+            print(f"Parsing {filename}...")
+            parser = Parser(input_path)
+            data = parser.parse()
+
+            print(f"Running VNS on {filename}...")
+
+            # Run VNS algorithm
+            score, solution = solver.variable_neighborhood_search(data, time_limit_ms=10000)
+
+            # Export the solution
+            solution.export(output_path)
+
+            print(f'Final VNS score for {filename}: {score:,}')
+            print(f'Solution exported to: {output_path}')
+            print('-' * 50)
+
+        except Exception as e:
+            print(f" Error processing {filename}: {e}")
+
+# print("---------- GREAT DELUGE ALGORITHM ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         print(parser)
+#         data = parser.parse()
+
+#         start_time = time.time()
+#         score, solution = solver.great_deluge_algorithm(data, max_time=300, max_iterations=1000)
+#         end_time = time.time()
+#         elapsed_time = end_time - start_time
+
+#         solution.export(f'./output/gda/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Time taken: {elapsed_time:.2f} seconds')
+
+#         with open('./output/gda/notes.txt', 'a') as notes:
+#             notes.write(f'From: {file}\n')
+#             notes.write(f'Final score: {score:,}\n')
+#             notes.write(f'Time taken: {elapsed_time:.2f} seconds\n\n')
+
+# if __name__ == '__main__':
+#     print("---------- HYBRID PARALLEL EVOLUTIONARY SEARCH ----------")
+#     for file in directory:
+#         if file.endswith('.txt'):
+#             print(f'Computing ./input/{file}')
+#             parser = Parser(f'./input/{file}')
+#             data = parser.parse()
+            
+#             score, solution = solver.hybrid_parallel_evolutionary_search(
+#                 data, 
+#                 num_iterations=1000, 
+#                 time_limit=60
+#             )
+#             solution.export(f'./output/hybrid_evolutionary_{file}')
+#             print(f'Final score: {score:,}')
+#             print(f'Solution exported to ./output/hybrid_evolutionary_{file}')

@@ -397,7 +397,8 @@ class Solver:
             self.tweak_solution_swap_same_books,
             self.tweak_solution_swap_signed,
             self.tweak_solution_swap_last_book,
-            self.tweak_solution_swap_neighbor_libraries
+            self.tweak_solution_swap_neighbor_libraries,
+            self.tweak_solution_insert_library,
         ]
 
         for i in range(iterations - 1):
@@ -1191,127 +1192,81 @@ class Solver:
         return Best
 
     def hill_climbing_insert_library(self, data, iterations=1000):
-            # Reset the Library ID counter to ensure we start from 0
-            Library._id_counter = 0
+        Library._id_counter = 0
 
-            # 1. Preprocess and validate data
-            valid_library_ids = set(range(len(data.libs)))
+        valid_library_ids = set(range(len(data.libs)))
 
-            # Convert book_libs to dictionary format if it's a list
-            if isinstance(data.book_libs, list):
-                # Assuming list index corresponds to book_id
-                book_libs_dict = {}
-                for book_id, lib_ids in enumerate(data.book_libs):
-                    if isinstance(lib_ids, (list, tuple)):
-                        book_libs_dict[book_id] = [
-                            lib_id for lib_id in lib_ids
-                            if lib_id in valid_library_ids
-                        ]
-                data.book_libs = book_libs_dict
-            elif hasattr(data, 'book_libs') and isinstance(data.book_libs, dict):
-                # Clean existing dictionary
-                cleaned_book_libs = {}
-                for book_id, lib_ids in data.book_libs.items():
-                    if isinstance(lib_ids, (list, tuple)):
-                        cleaned_book_libs[book_id] = [
-                            lib_id for lib_id in lib_ids
-                            if lib_id in valid_library_ids
-                        ]
-                data.book_libs = cleaned_book_libs
-            else:
-                raise ValueError("data.book_libs must be either a list or dictionary")
-
-            # Rest of the function remains the same as previous solution
-            solution = self.generate_initial_solution(data)
-            solution.unsigned_libraries = [
-                lib_id for lib_id in solution.unsigned_libraries
-                if lib_id in valid_library_ids
-            ]
-
-            for _ in range(iterations):
-                # Get unsigned books from valid libraries
-                unsigned_books = []
-                for lib_id in solution.unsigned_libraries:
-                    if lib_id not in valid_library_ids:
-                        continue
-                    lib = data.libs[lib_id]
-                    for book in lib.books:
-                        if book.id not in solution.scanned_books:
-                            unsigned_books.append(book)
-
-                if not unsigned_books:
-                    continue
-
-                # Select top book
-                unsigned_books.sort(key=lambda b: -data.scores[b.id])
-                selected_book = random.choice(unsigned_books[:max(1, len(unsigned_books)//20)])
-
-                # Find valid libraries containing this book
-                if selected_book.id not in data.book_libs:
-                    continue
-
-                library_candidates = [
-                    lib_id for lib_id in data.book_libs[selected_book.id]
-                    if lib_id in valid_library_ids and
-                    lib_id in solution.unsigned_libraries
-                ]
-
-                if not library_candidates:
-                    continue
-
-                # Sign the library
-                selected_library = random.choice(library_candidates)
-                solution.signed_libraries.append(selected_library)
-                solution.unsigned_libraries.remove(selected_library)
-
-                # Calculate available scanning time
-                total_signup = sum(
-                    data.libs[lib_id].signup_days
-                    for lib_id in solution.signed_libraries
-                    if lib_id in valid_library_ids
-                )
-                time_left = data.num_days - total_signup
-
-                if time_left <= 0:
-                    solution.signed_libraries.pop()
-                    solution.unsigned_libraries.append(selected_library)
-                    continue
-
-                # Scan books
-                lib = data.libs[selected_library]
-                available_books = sorted(
-                    {b.id for b in lib.books} - solution.scanned_books,
-                    key=lambda b: -data.scores[b]
-                )[:time_left * lib.books_per_day]
-
-                if available_books:
-                    solution.scanned_books_per_library[selected_library] = available_books
-                    solution.scanned_books.update(available_books)
-
-                # Ensure time constraint
-                while True:
-                    total_signup = sum(
-                        data.libs[lib_id].signup_days
-                        for lib_id in solution.signed_libraries
+        if isinstance(data.book_libs, list):
+            book_libs_dict = {}
+            for book_id, lib_ids in enumerate(data.book_libs):
+                if isinstance(lib_ids, (list, tuple)):
+                    book_libs_dict[book_id] = [
+                        lib_id for lib_id in lib_ids
                         if lib_id in valid_library_ids
-                    )
-                    if total_signup <= data.num_days:
-                        break
+                    ]
+            data.book_libs = book_libs_dict
+        elif hasattr(data, 'book_libs') and isinstance(data.book_libs, dict):
+            cleaned_book_libs = {}
+            for book_id, lib_ids in data.book_libs.items():
+                if isinstance(lib_ids, (list, tuple)):
+                    cleaned_book_libs[book_id] = [
+                        lib_id for lib_id in lib_ids
+                        if lib_id in valid_library_ids
+                    ]
+            data.book_libs = cleaned_book_libs
+        else:
+            raise ValueError("data.book_libs must be either a list or dictionary")
 
-                    if not solution.signed_libraries:
-                        break
+        solution = self.generate_initial_solution(data)
+        solution.unsigned_libraries = [
+            lib_id for lib_id in solution.unsigned_libraries
+            if lib_id in valid_library_ids
+        ]
 
-                    removed = solution.signed_libraries.pop()
-                    solution.unsigned_libraries.append(removed)
-                    if removed in solution.scanned_books_per_library:
-                        solution.scanned_books.difference_update(
-                            solution.scanned_books_per_library.pop(removed)
-                        )
+        for _ in range(iterations):
+            new_solution = self.tweak_solution_insert_library(solution, data)
+            
+            if new_solution.fitness_score > solution.fitness_score:
+                solution = new_solution
 
-                solution.calculate_fitness_score(data.scores)
+        return solution.fitness_score, solution
 
-            return solution.fitness_score, solution
-    
+    def tweak_solution_insert_library(self, solution, data):
+        if not solution.unsigned_libraries:
+            return solution
+
+        new_solution = copy.deepcopy(solution)
+        
+        curr_time = sum(data.libs[lib_id].signup_days for lib_id in new_solution.signed_libraries)
+        
+        for _ in range(len(new_solution.unsigned_libraries)):
+            insert_idx = random.randint(0, len(new_solution.unsigned_libraries) - 1)
+            new_lib_id = new_solution.unsigned_libraries[insert_idx]
+            
+            if curr_time + data.libs[new_lib_id].signup_days >= data.num_days:
+                continue
+                
+            time_left = data.num_days - (curr_time + data.libs[new_lib_id].signup_days)
+            max_books_scanned = time_left * data.libs[new_lib_id].books_per_day
+            
+            available_books = sorted(
+                {book.id for book in data.libs[new_lib_id].books} - new_solution.scanned_books,
+                key=lambda b: -data.scores[b]
+            )[:max_books_scanned]
+            
+            if available_books:
+                insert_pos = random.randint(0, len(new_solution.signed_libraries))
+                new_solution.signed_libraries.insert(insert_pos, new_lib_id)
+                new_solution.unsigned_libraries.pop(insert_idx)
+                
+                new_solution.scanned_books_per_library[new_lib_id] = available_books
+                new_solution.scanned_books.update(available_books)
+                
+                new_solution.calculate_fitness_score(data.scores)
+                return new_solution
+        
+        return solution
+
     def tweak_solution_swap_neighbor_libraries(self, solution, data):
         """Swaps two adjacent libraries in the signed list to create a neighbor solution."""
         if len(solution.signed_libraries) < 2:

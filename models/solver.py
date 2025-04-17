@@ -1364,7 +1364,7 @@ class Solver:
         stagnation_cnt  = 0
         max_stagnation  = 50
         
-        pop_size         = 4
+        population_size  = 4
         tour_size        = 2
         mutation_prob    = 0.3
         hill_climb_steps = 50
@@ -1379,7 +1379,7 @@ class Solver:
 
         # 2) Launch pool once for all generations
         with ProcessPoolExecutor(
-            max_workers=max(1, pop_size // 2),
+            max_workers=max(1, population_size // 2),
             initializer=_pool_init,
             initargs=(data, hill_climb_steps, mutation_prob)
         ) as executor:
@@ -1411,12 +1411,12 @@ class Solver:
 
                 # generate raw offspring
                 raw_offspring = []
-                while len(raw_offspring) < pop_size - 1:
+                while len(raw_offspring) < population_size - 1:
                     p1 = self.tournament_select(population)
                     p2 = self.tournament_select(population)
                     o1, o2 = self.crossover(p1, p2)
                     raw_offspring.append(o1)
-                    if len(raw_offspring) < pop_size - 1:
+                    if len(raw_offspring) < population_size - 1:
                         raw_offspring.append(o2)
 
                 # parallel mutation + hill‑climb
@@ -1439,9 +1439,11 @@ class Solver:
 
     def initialize_population(self, initializer, data):
         """Initialize population using the provided initializer function."""
-        return [initializer(data) for _ in range(self.population_size)]
+        population_size = 4
+        return [initializer(data) for _ in range(population_size)]
 
     def tournament_select(self, population):
         """Select a solution using tournament selection."""
-        tournament = random.sample(population, self.tournament_size)
+        tournament_size  = 2
+        tournament = random.sample(population, tournament_size)
         return max(tournament, key=lambda x: x.fitness_score)

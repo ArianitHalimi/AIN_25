@@ -288,6 +288,27 @@ for file in directory:
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
+# print("---------- GREAT DELUGE ALGORITHM ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         print(parser)
+#         data = parser.parse()
+
+#         start_time = time.time()
+#         score, solution = solver.great_deluge_algorithm(data, max_time=300, max_iterations=1000)
+#         end_time = time.time()
+#         elapsed_time = end_time - start_time
+
+#         solution.export(f'./output/gda/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Time taken: {elapsed_time:.2f} seconds')
+
+#         with open('./output/gda/notes.txt', 'a') as notes:
+#             notes.write(f'From: {file}\n')
+#             notes.write(f'Final score: {score:,}\n')
+#             notes.write(f'Time taken: {elapsed_time:.2f} seconds\n\n')
+
 # if __name__ == '__main__':
 #     print("---------- HYBRID PARALLEL EVOLUTIONARY SEARCH ----------")
 #     for file in directory:

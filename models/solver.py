@@ -1512,3 +1512,95 @@ class Solver:
         tournament_size  = 2
         tournament = random.sample(population, tournament_size)
         return max(tournament, key=lambda x: x.fitness_score)
+    
+    def great_deluge_algorithm(self, data, max_time=300, max_iterations=1000, delta_B=None):
+        """
+        Enhanced Great Deluge Algorithm with GRASP initialization and optimized parameters
+        """
+        # Validate input type
+        if not hasattr(data, 'libs'):
+            raise TypeError("First argument must be problem Data instance")
+
+        # Initialize with GRASP-generated solution
+        current_solution = self.generate_initial_solution_grasp(data, p=0.1, max_time=30)
+        current_score = current_solution.fitness_score
+        best_solution = copy.deepcopy(current_solution)
+        best_score = current_score
+        
+        # Adaptive boundary initialization
+        initial_boundary_buffer = 1.25  # Increased from 1.1 for better exploration
+        B = current_score * initial_boundary_buffer
+        
+        # Dynamic decay calculation
+        if delta_B is None:
+            delta_B = (current_score * 0.3) / max_iterations  # More aggressive initial decay
+            
+        # Memory structures for stagnation detection
+        memory_window = deque(maxlen=75)  # Larger window size for better trend detection
+        improvement_threshold = current_score * 0.002  # More tolerant threshold
+        
+        # Nonlinear decay parameters
+        alpha = 0.92  # Faster decay acceleration
+        beta = 1.05   # Stronger exploration boost
+        
+        start_time = time.time()
+        iterations = 0
+        
+        while (time.time() - start_time) < max_time and iterations < max_iterations:
+            try:
+                # Generate neighbor using combined hill climbing with adaptive depth
+                neighbor = self.hill_climbing_combined(
+                    data, 
+                    iterations=int(15 * (1 - iterations/max_iterations))  # Increased initial depth
+                )[1]
+                
+                # Solution validation
+                if not isinstance(neighbor, Solution):
+                    raise RuntimeError("Neighbor generation failed - invalid solution type")
+
+                neighbor_score = neighbor.fitness_score
+
+                # Enhanced acceptance criteria
+                if neighbor_score >= current_score or neighbor_score >= B:
+                    current_solution = neighbor
+                    current_score = neighbor_score
+                    
+                    # Update best solution with elite selection
+                    if current_score > best_score:
+                        best_solution = copy.deepcopy(current_solution)
+                        best_score = current_score
+                        delta_B *= alpha  # Accelerate decay
+                        B = best_score * initial_boundary_buffer  # Reset boundary relative to best
+                    else:
+                        delta_B *= beta   # Encourage exploration
+
+                # Adaptive nonlinear boundary adjustment
+                B = max(B - delta_B * (1 + (iterations/500)), 0)  # Faster decay acceleration
+                
+                # Stagnation detection and diversification
+                memory_window.append(current_score)
+                if len(memory_window) == memory_window.maxlen:
+                    if (max(memory_window) - min(memory_window)) < improvement_threshold:
+                        # Stronger diversification kick
+                        current_solution = self.perturb_solution(best_solution, data)
+                        current_score = current_solution.fitness_score
+                        B = current_score * 1.3  # Higher boundary reset
+                        delta_B *= 0.7  # More aggressive decay reduction
+                        
+                iterations += 1
+
+            except Exception as e:
+                print(f"Iteration {iterations} failed: {str(e)}")
+                break
+
+        # Final intensification phase using sorted initial solution
+        refined_solution = self.hill_climbing_combined(
+            data,
+            iterations=int(max_iterations*0.15)  # Increased refinement time
+        )[1]
+        
+        # Fallback to best solution if refinement degraded quality
+        if refined_solution.fitness_score < best_score:
+            return best_score, best_solution
+        
+        return refined_solution.fitness_score, refined_solution

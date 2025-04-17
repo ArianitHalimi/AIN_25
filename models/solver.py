@@ -775,6 +775,71 @@ class Solver:
                 Best = copy.deepcopy(S)
 
         return Best
+    
+    def feature_based_tabu_search(self, initial_solution, data, tabu_max_len=10, n=5, max_iterations=100):
+        from time import perf_counter
+
+        S = copy.deepcopy(initial_solution)
+        S.calculate_fitness_score(data.scores)
+        Best = copy.deepcopy(S)
+
+        L = deque(maxlen=tabu_max_len)  # Stores (signature, timestamp)
+        tabu_set = set()  # Faster lookup than looping over deque
+        c = 0
+        sig_S = self._get_signature(S)
+        L.append((sig_S, c))
+        tabu_set.add(sig_S)
+
+        tweak_functions = [
+            self.tweak_solution_swap_last_book,
+            self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_same_books
+        ]
+
+        def tweak_avoiding_tabu(S_ref, L_set):
+            max_attempts = 10
+            for _ in range(max_attempts):
+                tweak = random.choice(tweak_functions)
+                try:
+                    S_copy = copy.deepcopy(S_ref)
+                    R = tweak(S_copy, data)
+                    sig = self._get_signature(R)
+                    if sig not in L_set:
+                        return R, [sig]
+                except:
+                    continue
+            # fallback
+            fallback_copy = copy.deepcopy(S_ref)
+            return fallback_copy, [self._get_signature(fallback_copy)]
+
+        for iteration in range(max_iterations):
+            c += 1
+            # Clean old tabu entries
+            L = deque([(feature, ts) for feature, ts in L if c - ts <= tabu_max_len], maxlen=tabu_max_len)
+            tabu_set = set(f for f, _ in L)
+
+            R, modified_features_R = tweak_avoiding_tabu(S, tabu_set)
+
+            for _ in range(n - 1):
+                W, modified_features_W = tweak_avoiding_tabu(S, tabu_set)
+                if W.fitness_score > R.fitness_score:
+                    R = W
+                    modified_features_R = modified_features_W
+
+            if R.fitness_score > S.fitness_score:
+                S = R
+                for feature in modified_features_R:
+                    L.append((feature, c))
+                    tabu_set.add(feature)
+
+                if S.fitness_score > Best.fitness_score:
+                    Best = copy.deepcopy(S)
+
+            # Optional: remove this if you don't need runtime feedback
+            # print(f"Iter {iteration}: Current = {S.fitness_score}, Best = {Best.fitness_score}")
+
+        return Best
 
     def simulated_annealing_with_cutoff(self, data, total_time_ms=1000, max_steps=10000):
         # Lightweight solution representation

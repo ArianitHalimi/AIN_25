@@ -244,22 +244,10 @@ for file in directory:
 #         print(f'Processing file: {file}')
 #         parser = Parser(f'./input/{file}')
 #         data = parser.parse()
-# print("---------- GUIDED LOCAL SEARCH ----------")
-# for file in directory:
-#     if file.endswith('.txt'):
-#         print(f'Processing file: {file}')
-#         parser = Parser(f'./input/{file}')
-#         data = parser.parse()
 
 #         # Call the guided local search function
 #         solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
-#         # Call the guided local search function
-#         solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
 
-#         # Export the solution
-#         solution.export(f'./output/gls_{file}')
-#         print(f'Final score for {file}: {solution.fitness_score:,}')
-#         print(f'Solution exported to ./output/gls_{file}')
 #         # Export the solution
 #         solution.export(f'./output/gls_{file}')
 #         print(f'Final score for {file}: {solution.fitness_score:,}')

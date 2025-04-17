@@ -288,6 +288,54 @@ for file in directory:
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
+input_folder = './input'
+output_folder = './output'
+os.makedirs(output_folder, exist_ok=True)
+
+# instance_files = [
+#     'UPFIEK.txt',
+#     'a_example.txt',
+#     'b_read_on.txt',
+#     'c_incunabula.txt',
+#     'd_tough_choices.txt',
+#     'e_so_many_books.txt',
+#     'f_libraries_of_the_world.txt',
+#     'Toy instance.txt',
+#     'B5000_L90_D21.txt',
+#     'B50000_L400_D28.txt',
+#     'B100000_L600_D28.txt',
+#     'B90000_L850_D21.txt',
+#     'B95000_L2000_D28.txt',
+#     'switch_book_instance.txt'
+# ]
+
+print("---------- VARIABLE NEIGHBORHOOD SEARCH ----------")
+
+for filename in os.listdir(input_folder):
+    if filename.endswith('.txt'):
+        input_path = os.path.join(input_folder, filename)
+        output_path = os.path.join(output_folder, f'vns_{filename}')
+
+        try:
+            print(f"Parsing {filename}...")
+            parser = Parser(input_path)
+            data = parser.parse()
+
+            print(f"Running VNS on {filename}...")
+
+            # Run VNS algorithm
+            score, solution = solver.variable_neighborhood_search(data, time_limit_ms=10000)
+
+            # Export the solution
+            solution.export(output_path)
+
+            print(f'Final VNS score for {filename}: {score:,}')
+            print(f'Solution exported to: {output_path}')
+            print('-' * 50)
+
+        except Exception as e:
+            print(f" Error processing {filename}: {e}")
+
 # print("---------- GREAT DELUGE ALGORITHM ----------")
 # for file in directory:
 #     if file.endswith('.txt'):

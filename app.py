@@ -1,5 +1,7 @@
 from models import Parser
 from models import Solver
+from models import HyperHeuristicSolver
+from models import Library
 
 
 import os
@@ -220,20 +222,20 @@ directory = os.listdir('input')
 #         print(f'Final score for {file}: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
-print("---------- GUIDED LOCAL SEARCH ----------")
-for file in directory:
-    if file.endswith('.txt'):
-        print(f'Processing file: {file}')
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
+# print("---------- GUIDED LOCAL SEARCH ----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         print(f'Processing file: {file}')
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
 
-        # Call the guided local search function
-        solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
+#         # Call the guided local search function
+#         solution = solver.guided_local_search(data, max_time=300, max_iterations=1000)
 
-        # Export the solution
-        solution.export(f'./output/gls_{file}')
-        print(f'Final score for {file}: {solution.fitness_score:,}')
-        print(f'Solution exported to ./output/gls_{file}')
+#         # Export the solution
+#         solution.export(f'./output/gls_{file}')
+#         print(f'Final score for {file}: {solution.fitness_score:,}')
+#         print(f'Solution exported to ./output/gls_{file}')
 
 
 
@@ -269,3 +271,29 @@ for file in directory:
 #         solution.export(f'./output/{file}')
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
+
+print("---------- HyperHeuristics solver ----------")
+for file in directory:
+    if file.endswith('.txt'):
+        print(f'Processing file: {file}')
+        parser = Parser(f'./input/{file}')
+        Library._id_counter = 0        # ← reset here
+        data = parser.parse()
+
+        hyperHeuristicSolver = HyperHeuristicSolver(iterations=1000)
+        solution, heuristics_index = hyperHeuristicSolver.solve(data)
+        solution.enforce_capacity(data)
+        score = solution.fitness_score
+        folder_path = f'./output/hyper/{"_".join(file.removesuffix(".txt").split(' '))}'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path, exist_ok=True)
+            print(f"Folder '{folder_path}' created.")
+        else:
+            print(f"Folder '{folder_path}' already exists.")
+        # Export the solution
+        solution.export(f'{folder_path}/{file}')
+        print(f'Final score for {file}: {solution.fitness_score:,}')
+        print(f'Solution exported to ./output/{file}')
+        heuristics_index_file_path = f'{folder_path}/heuristics.txt'
+        with open(heuristics_index_file_path, "w+") as ofp:
+            ofp.write(" ".join(map(str, heuristics_index)))

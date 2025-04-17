@@ -57,3 +57,38 @@ class Solution:
         updated_fitness = current_fitness + delta_fitness
 
         self.fitness_score = updated_fitness
+
+    def enforce_capacity(self, data):
+        """
+        Trim each library's book list so it never exceeds the true scan capacity
+        given the actual signup schedule.
+        """
+        lib_dict = {lib.id: lib for lib in data.libs}
+        curr_time = 0
+
+        new_signed = []
+        new_scanned_per_lib = {}
+        new_scanned_set = set()
+
+        for lib_id in self.signed_libraries:
+            lib = lib_dict[lib_id]
+            curr_time += lib.signup_days
+            time_left = data.num_days - curr_time
+            max_books = max(0, time_left * lib.books_per_day)
+
+            books = self.scanned_books_per_library.get(lib_id, [])
+            # Trim to capacity
+            trimmed = books[:max_books]
+
+            if trimmed:
+                new_signed.append(lib_id)
+                new_scanned_per_lib[lib_id] = trimmed
+                new_scanned_set.update(trimmed)
+            else:
+                # If no books fit, treat as unsigned
+                self.unsigned_libraries.append(lib_id)
+
+        # Overwrite with trimmed values
+        self.signed_libraries = new_signed
+        self.scanned_books_per_library = new_scanned_per_lib
+        self.scanned_books = new_scanned_set

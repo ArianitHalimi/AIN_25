@@ -44,7 +44,7 @@ class HyperHeuristicSolver:
     multiple low-level heuristics. The solver also logs the names of the heuristics used and uses
     weighted selection so that heuristics that yield improvements are more likely to be selected.
     """
-    def __init__(self, time_limit=300, iterations=1000):
+    def __init__(self, time_limit=300, iterations=10000):
         self.time_limit = time_limit
         self.iterations = iterations
         # List of heuristic functions (each should add one library to the solution)
@@ -56,10 +56,17 @@ class HyperHeuristicSolver:
             self.heuristic_unique_books,
             self.heuristic_time_aware,
             self.heuristic_hybrid_ratio,
-            self.heuristic_random
         ]
         # Initial weights for each heuristic (higher weight => more likely to be selected)
-        self.heuristic_weights = [1.0] * len(self.heuristics)
+        self.heuristic_weights = [
+            20, # self.heuristic_most_books,
+            15, # self.heuristic_lowest_coefficient,
+            20, # self.heuristic_highest_scanning_capacity,
+            25, # self.heuristic_highest_total_book_score,
+            20, # self.heuristic_unique_books,
+            15, # self.heuristic_time_aware,
+            15, # self.heuristic_hybrid_ratio,
+        ]
         # Log for the names of heuristics used (for post-run analysis)
         self.heuristic_log = []
 
@@ -143,19 +150,6 @@ class HyperHeuristicSolver:
         best = max(candidates, key=unique_count)
         return add_library(solution, best, data)
 
-    def heuristic_randomized_greedy(self, solution, data):
-        """
-        Among the top candidates (based on total book score), randomly selects one to add.
-        """
-        candidates = [lib for lib in data.libs if lib.id not in solution.signed_libraries]
-        if not candidates:
-            return solution
-        sorted_candidates = sorted(candidates, key=lambda lib: sum(data.scores[book.id] for book in lib.books), reverse=True)
-        # Choose from the top third (at least one candidate)
-        top_count = max(1, len(sorted_candidates) // 3)
-        best = random.choice(sorted_candidates[:top_count])
-        return add_library(solution, best, data)
-
     def heuristic_time_aware(self, solution, data):
         """
         Adds a library taking into account the remaining time, preferring libraries with shorter signup days.
@@ -182,16 +176,6 @@ class HyperHeuristicSolver:
         best = max(candidates, key=hybrid)
         return add_library(solution, best, data)
 
-    def heuristic_random(self, solution, data):
-        """
-        Adds a random library from those not yet in the solution.
-        """
-        candidates = [lib for lib in data.libs if lib.id not in solution.signed_libraries]
-        if not candidates:
-            return solution
-        best = random.choice(candidates)
-        return add_library(solution, best, data)
-
     # --- Main Hyper-Heuristic Solve Method ---
     def solve(self, data):
         """
@@ -200,10 +184,10 @@ class HyperHeuristicSolver:
         It logs the heuristic moves used and adapts weights based on the improvement observed.
         """
         current_solution = self.generate_initial_solution(data)
-        best_solution = current_solution
         start_time = time.time()
         iter_count = 0
         self.heuristic_log = []
+        heuristic_log_index = []
 
         while time.time() - start_time < self.time_limit and iter_count < self.iterations:
             # If no candidate remains (all libraries added or no time left), break.
@@ -213,34 +197,39 @@ class HyperHeuristicSolver:
             # Weighted random choice of heuristic.
             chosen_heuristic = random.choices(self.heuristics, weights=self.heuristic_weights, k=1)[0]
             candidate_solution = chosen_heuristic(current_solution, data)
+            idx = self.heuristics.index(chosen_heuristic)
 
             # Log the used heuristic name.
             heuristic_name = chosen_heuristic.__name__
             self.heuristic_log.append(heuristic_name)
-
-            # Update weights adaptively: if move improved fitness, increase weight; otherwise, decrease a bit.
-            if candidate_solution.fitness_score > current_solution.fitness_score:
-                current_solution = candidate_solution
-                idx = self.heuristics.index(chosen_heuristic)
-                self.heuristic_weights[idx] += 0.1
-                if current_solution.fitness_score > best_solution.fitness_score:
-                    best_solution = current_solution
-            else:
-                current_solution = candidate_solution
-                idx = self.heuristics.index(chosen_heuristic)
-                self.heuristic_weights[idx] = max(0.1, self.heuristic_weights[idx] - 0.05)
+            heuristic_log_index.append(idx)
+            current_solution = candidate_solution
             iter_count += 1
 
         # Output the log of heuristics used (and their frequencies)
         frequency = defaultdict(int)
+
         for name in self.heuristic_log:
             frequency[name] += 1
-        print("Heuristic usage frequencies:")
-        for name, count in frequency.items():
-            print(f"  {name}: {count}")
+        
+        print(f"total iterations: {len(heuristic_log_index)}")
 
-        print("Final heuristic weights:")
-        for heuristic, weight in zip([h.__name__ for h in self.heuristics], self.heuristic_weights):
-            print(f"  {heuristic}: {weight:.2f}")
+        return (current_solution, heuristic_log_index)
 
-        return best_solution
+ # python validator.py ../input/B90000_L850_D21.txt ../output/hyper/B90000_L850_D21/B90000_L850_D21.txt
+ # python validator.py ../input/UPFIEK.txt ../output/hyper/UPFIEK/UPFIEK.txt
+ # python validator.py ../input/switch_books_instance.txt ../output/hyper/switch_books_instance/switch_books_instance.txt
+ # python validator.py ../input/f_libraries_of_the_world.txt ../output/hyper/f_libraries_of_the_world/f_libraries_of_the_world.txt
+ # python validator.py ../input/e_so_many_books.txt ../output/hyper/e_so_many_books/e_so_many_books.txt
+ # python validator.py ../input/d_tough_choices.txt ../output/hyper/d_tough_choices/d_tough_choices.txt
+ # python validator.py ../input/c_incunabula.txt ../output/hyper/c_incunabula/c_incunabula.txt
+ # python validator.py ../input/b_read_on.txt ../output/hyper/b_read_on/b_read_on.txt
+# python validator.py ../input/B5000_L90_D21.txt ../output/hyper/B5000_L90_D21/B5000_L90_D21.txt
+# python validator.py ../input/B50000_L400_D28.txt ../output/hyper/B50000_L400_D28/B50000_L400_D28.txt
+# python validator.py ../input/B95000_L2000_D28.txt ../output/hyper/B95000_L2000_D28/B95000_L2000_D28.txt
+# python validator.py ../input/B100000_L600_D28.txt ../output/hyper/B100000_L600_D28/B100000_L600_D28.txt
+# python validator.py ../input/a_example.txt ../output/hyper/a_example/a_example.txt
+
+
+
+ 

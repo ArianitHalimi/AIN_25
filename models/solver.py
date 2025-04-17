@@ -1100,3 +1100,35 @@ class Solver:
         solution.calculate_fitness_score(data.scores)
         
         return solution
+    
+    def variable_neighborhood_search(self, data, time_limit_ms=10000):
+       
+            start_time = time.time()
+            time_limit_s = time_limit_ms / 1000.0
+
+            current_solution = self.generate_initial_solution_grasp(data, p=0.05, max_time=5)
+            best_score = current_solution.fitness_score
+
+            operators = [
+                self.tweak_solution_swap_signed_with_unsigned,
+                self.tweak_solution_swap_signed,
+                self.tweak_solution_swap_last_book,
+                self.tweak_solution_swap_same_books
+            ]
+
+            k = 0
+            while time.time() - start_time < time_limit_s:
+                operator = operators[k]
+                new_solution = operator(copy.deepcopy(current_solution), data)
+
+                if new_solution.fitness_score > best_score:
+                    current_solution = new_solution
+                    best_score = new_solution.fitness_score
+                    k = 0 
+                else:
+                    k += 1
+                    if k >= len(operators):
+                        k = 0 
+
+            return best_score, current_solution
+

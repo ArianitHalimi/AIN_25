@@ -14,6 +14,14 @@ from functools import partial
 import multiprocessing
 from typing import Tuple
 from models.instance_data import InstanceData
+# Simulated Annealing Hybrid Paraelelism Cooling Functions
+
+def cooling_exponential(temp, cooling_rate=0.003):
+    return temp * (1 - cooling_rate)
+def cooling_geometric(temp, alpha=0.95):
+    return temp * alpha
+def cooling_lundy_mees(temp, beta=0.001):
+    return temp / (1 + beta * temp)
 
 def _pool_init(instance_data: InstanceData, hc_steps: int, mutation_prob: float):
     global INSTANCE, HC_STEPS, MUT_PROB, SOLVER
@@ -1706,3 +1714,167 @@ class Solver:
             return best_score, best_solution
         
         return refined_solution.fitness_score, refined_solution
+    def simulated_annealing_hybrid_parallel(self, data, max_iterations=1000):
+        
+            #Generate initial solution using GRASP
+            initial_solution = self.generate_initial_solution_grasp(data, p=0.05, max_time=5)
+
+            # Shared dictionary and lock for process synchronization
+            manager = multiprocessing.Manager()
+            shared_best = manager.dict()
+            shared_best["score"] = initial_solution.fitness_score
+            shared_best["solution"] = initial_solution
+            lock = manager.Lock()
+
+            # Launch three paralell processes with different cooling strategies
+
+            processes = [
+                multiprocessing.Process(target=self.simulated_annealing_core_mp_optimized,
+                                        args=(initial_solution, data, cooling_exponential, max_iterations, shared_best, lock, "exp")),
+                multiprocessing.Process(target=self.simulated_annealing_core_mp_optimized,
+                                        args=(initial_solution, data, cooling_geometric, max_iterations, shared_best, lock, "geo")),
+                multiprocessing.Process(target=self.simulated_annealing_core_mp_optimized,
+                                        args=(initial_solution, data, cooling_lundy_mees, max_iterations, shared_best, lock, "lundy"))
+            ]
+
+            # Start all processes
+
+            for p in processes:
+                p.start()
+            
+            # Wait for all to finish
+
+            for p in processes:
+                p.join()
+
+            return shared_best["score"], shared_best["solution"]
+
+    def validate_solution(self, solution, data):
+        # Validates and corrects a solution by removing excess books from libraries that exceed scanning limits.
+        id_map = {lib.id: lib for lib in data.libs}
+        curr_time = 0
+
+        # Validate each library in the signed list
+
+        for lib_id in list(solution.signed_libraries):
+            library = id_map.get(lib_id)
+            if library is None:
+                continue  # # Skip if ID is invalid
+            
+            # Calculate how many books this library can scan within the time limit
+
+            if curr_time + library.signup_days >= data.num_days:
+                max_books = 0
+            else:
+                time_left = data.num_days - (curr_time + library.signup_days)
+                max_books = time_left * library.books_per_day
+           
+            # Get currently planned books
+            
+            scanned_list = solution.scanned_books_per_library.get(lib_id, [])
+            actual_count = len(scanned_list)
+
+            # Remove excess books if over limit
+
+            if actual_count > max_books:
+                # Remove all books
+                if max_books <= 0:
+        
+                    removed_books = set(scanned_list)
+                    solution.scanned_books_per_library.pop(lib_id, None)
+                else:
+                    # Remove lowest-scoring books
+                    sorted_books = sorted(scanned_list, key=lambda b: data.scores[b])
+                    remove_count = actual_count - max_books
+                    removed_books = set(sorted_books[:remove_count])
+                    kept_books = [b for b in scanned_list if b not in removed_books]
+                    solution.scanned_books_per_library[lib_id] = kept_books
+
+                # Remove from global scanned books
+
+                solution.scanned_books.difference_update(removed_books)
+             
+            # Advance time with registered date of this library
+            
+            curr_time += library.signup_days
+        return solution
+    
+    def simulated_annealing_core_mp_optimized(self, initial_solution, data, cooling_func, iterations, shared_best, lock, name):
+        current_solution = copy.deepcopy(initial_solution)
+        current_solution.calculate_fitness_score(data.scores)
+        best_solution = copy.deepcopy(current_solution)
+        current_temp = 1000.0
+
+        # Operator pool and their tracking names
+        
+        operators = [
+            self.tweak_solution_insert_library, # good for exploitation
+            self.tweak_solution_swap_same_books, # good for exploitation
+            self.tweak_solution_swap_signed # good for exploration
+        ]
+        operator_names = ["insert", "same_books", "swap_signed"]
+
+        # Track operator performance for adaptive selection
+
+        stats = {
+            name: {"gain": 1.0, "count": 1} for name in operator_names
+        }
+
+        weights = [1.0 for _ in operators]
+
+        for iteration in range(iterations):
+
+            # Choose operator based on current weights
+
+            operator = random.choices(operators, weights=weights, k=1)[0]
+            op_name = operator_names[operators.index(operator)]
+
+            try:
+                new_solution = operator(copy.deepcopy(current_solution), data)
+                new_solution.calculate_fitness_score(data.scores)
+
+                delta = new_solution.fitness_score - current_solution.fitness_score
+                acceptance_prob = math.exp(delta / current_temp) if delta < 0 else 1.0
+
+                if delta > 0 or random.random() < acceptance_prob:
+                    current_solution = new_solution
+                    if current_solution.fitness_score > best_solution.fitness_score:
+                        best_solution = copy.deepcopy(current_solution)
+                    stats[op_name]["gain"] += max(0, delta)
+
+                stats[op_name]["count"] += 1
+
+            except Exception:
+                continue
+
+            # Update temperature
+            
+            current_temp = cooling_func(current_temp)
+
+            if iteration % 100 == 0:
+                with lock:
+                    if best_solution.fitness_score > shared_best["score"]:
+                        shared_best["score"] = best_solution.fitness_score
+                        shared_best["solution"] = copy.deepcopy(best_solution)
+                    else:
+                        current_solution = copy.deepcopy(shared_best["solution"])
+                        current_solution.calculate_fitness_score(data.scores)
+
+                # Update operator weights based on gain per use
+
+                weights = [
+                    stats[name]["gain"] / stats[name]["count"]
+                    for name in operator_names
+                ]
+        # Final validation
+        try:
+            self.validate_solution(best_solution, data)
+            best_solution.calculate_fitness_score(data.scores)
+        except:
+            print(f"[{name.upper()}] Final solution invalid.")
+            return
+
+        with lock:
+            if best_solution.fitness_score > shared_best["score"]:
+                shared_best["score"] = best_solution.fitness_score
+                shared_best["solution"] = best_solution

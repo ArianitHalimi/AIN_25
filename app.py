@@ -373,3 +373,20 @@ for filename in os.listdir(input_folder):
 #             solution.export(f'./output/hybrid_evolutionary_{file}')
 #             print(f'Final score: {score:,}')
 #             print(f'Solution exported to ./output/hybrid_evolutionary_{file}')
+def run_parallel_sa():
+
+    print("---------- SIMULATED ANNEALING WITH MULTIPLE TEMPERATURE FUNCTIONS (PARALLEL) ----------")
+    for file in directory:
+        if file.endswith('.txt'):
+            print(f'Computing ./input/{file}')
+            parser = Parser(f'./input/{file}')
+            data = parser.parse()
+            score, solution = solver.simulated_annealing_hybrid_parallel(data, max_iterations=1000)
+            print(f'Best score from SA (parallel) for {file}: {score:,}')
+            output_file = f'./output/sa_hybrid_parallel_{file}'
+            solution.export(output_file)
+            print(f"Processing complete! Output written to: {output_file}")
+           
+if __name__ == "__main__":
+    multiprocessing.freeze_support()
+    run_parallel_sa()

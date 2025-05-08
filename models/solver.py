@@ -1,6 +1,8 @@
 import random
 from collections import defaultdict
+import threading
 import time
+from models.GreatDeluge.great_deluge import ParallelGDARunner
 from models.library import Library
 import os
 # from tqdm import tqdm
@@ -1669,6 +1671,15 @@ class Solver:
         tournament = random.sample(population, tournament_size)
         return max(tournament, key=lambda x: x.fitness_score)
     
+    def run_cpu_optimized_gda(self, data, max_time=300):
+        """
+        Run Great Deluge Algorithm with CPU-core optimized parallelism
+        Returns: (runner_instance, best_score, best_solution)
+        """
+        runner = ParallelGDARunner(self, data)
+        score, solution = runner.run_iterative_phases(max_total_time=max_time)
+        return runner, score, solution
+
     def great_deluge_algorithm(self, data, max_time=300, max_iterations=1000, delta_B=None):
         """
         Enhanced Great Deluge Algorithm with GRASP initialization and optimized parameters

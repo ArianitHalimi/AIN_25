@@ -148,7 +148,6 @@ directory = os.listdir('input')
 
 
 # print("---------- Feature-based Tabu Search ----------")
-# print("---------- Feature-based Tabu Search ----------")
 
 # parser = Parser(f'./input/e_so_many_books.txt')
 # data = parser.parse()

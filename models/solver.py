@@ -1,8 +1,6 @@
 import random
 from collections import defaultdict
-import threading
 import time
-from models.GreatDeluge.great_deluge import ParallelGDARunner
 from models.library import Library
 import os
 # from tqdm import tqdm
@@ -664,6 +662,7 @@ class Solver:
 
         return sum(book.score for book in data.books.values())
 
+
     def hill_climbing_with_random_restarts_basic(self, data, time_limit_ms=60000):
         
         time_intervals = [100, 200, 300, 500, 800]
@@ -708,7 +707,8 @@ class Solver:
         
         return best_solution, best_solution.fitness_score
 
-    def _basic(self, data, total_time_ms=1000):
+
+    def hill_climbing_with_random_restarts(self, data, total_time_ms=1000):
         Library._id_counter = 0
     # Lightweight solution representation
         def create_light_solution(solution):
@@ -1049,7 +1049,7 @@ class Solver:
         elapsed_time = time.time() * 1000 - start_time
         remaining_time = max(0, total_time_ms - elapsed_time)
 
-        restarts_score, restarts_sol = self._basic(data, total_time_ms=remaining_time)
+        restarts_score, restarts_sol = self.hill_climbing_with_random_restarts(data, total_time_ms=remaining_time)
 
         if steepest_score >= restarts_score:
             print("steepest ascent algorithm chosen: ", steepest_score)
@@ -1668,15 +1668,6 @@ class Solver:
         tournament_size  = 2
         tournament = random.sample(population, tournament_size)
         return max(tournament, key=lambda x: x.fitness_score)
-    
-    def run_cpu_optimized_gda(self, data, max_time=300):
-        """
-        Run Great Deluge Algorithm with CPU-core optimized parallelism
-        Returns: (runner_instance, best_score, best_solution)
-        """
-        runner = ParallelGDARunner(self, data)
-        score, solution = runner.run_iterative_phases(max_total_time=max_time)
-        return runner, score, solution
     
     def great_deluge_algorithm(self, data, max_time=300, max_iterations=1000, delta_B=None):
         """

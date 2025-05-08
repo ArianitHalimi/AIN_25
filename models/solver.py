@@ -14,6 +14,16 @@ from functools import partial
 import multiprocessing
 from typing import Tuple
 from models.instance_data import InstanceData
+import time
+import math
+import random
+import xgboost as xgb
+import lightgbm as lgb
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+
 # Simulated Annealing Hybrid Paraelelism Cooling Functions
 
 def cooling_exponential(temp, cooling_rate=0.003):
@@ -928,6 +938,104 @@ class Solver:
             {b for books in best["books"].values() for b in books}
         )
     
+    def simulated_annealing_with_cutoff_and_ml_algorithms(self, data, total_time_ms=1000, max_steps=10000):
+        # Lightweight solution representation
+        def create_light_solution(solution):
+            return {
+                "signed": list(solution.signed_libraries),
+                "books": dict(solution.scanned_books_per_library),
+                "score": solution.fitness_score
+            }
+
+        # Initialize
+        current = create_light_solution(self.generate_initial_solution(data))
+        best = current.copy()
+        tweak_functions = [
+            self.tweak_solution_swap_signed_with_unsigned,
+            self.tweak_solution_swap_signed,
+            self.tweak_solution_swap_last_book
+        ]
+
+        # ML setup
+        scaler = StandardScaler()
+        X_train = []  # Features: [score, delta, temperature, stagnation]
+        y_train = []  # Target: tweak function index
+        classes = [0, 1, 2]  # Explicitly define all possible tweak indices
+        model_xgb = xgb.XGBClassifier(n_estimators=50, max_depth=3, random_state=42, objective='multi:softprob', num_class=3)
+        model_lgb = lgb.LGBMClassifier(n_estimators=50, max_depth=3, random_state=42, objective='multiclass', num_class=3)
+        training_data_size = 100  # Train after collecting this many samples
+        class_counts = {0: 0, 1: 0, 2: 0}  # Track occurrences of each tweak index
+
+        # Adaptive parameters
+        temperature = 1000  # Controls solution acceptance
+        stagnation = 0  # Iterations since last improvement
+
+        # Time management
+        start_time = time.time()
+
+        steps_taken = 0
+        while (time.time() - start_time) * 1000 < total_time_ms and steps_taken < max_steps:
+            # 1. Select tweak function (use ML after initial data collection)
+            if len(X_train) >= training_data_size and all(count > 0 for count in class_counts.values()) and random.random() < 0.8:
+                # Prepare features
+                features = np.array([[current["score"], 0, temperature, stagnation]])
+                features_scaled = scaler.fit_transform(features)
+                
+                # Predict with both models and average probabilities
+                xgb_probs = model_xgb.predict_proba(features_scaled)[0]
+                lgb_probs = model_lgb.predict_proba(features_scaled)[0]
+                avg_probs = (xgb_probs + lgb_probs) / 2
+                tweak_idx = np.argmax(avg_probs)
+            else:
+                # Random selection initially
+                tweak_idx = random.randint(0, 2)
+
+            # 2. Generate neighbor
+            neighbor = create_light_solution(
+                tweak_functions[tweak_idx](
+                    Solution(current["signed"], [], current["books"], set()),
+                    data
+                )
+            )
+
+            # 3. Simulated annealing acceptance
+            delta = neighbor["score"] - current["score"]
+            if delta > 0 or random.random() < math.exp(delta / temperature):
+                # Collect training data
+                X_train.append([current["score"], delta, temperature, stagnation])
+                y_train.append(tweak_idx)
+                class_counts[tweak_idx] += 1
+                
+                current = neighbor
+
+                # Update best solution
+                if current["score"] > best["score"]:
+                    best = current.copy()
+                    stagnation = 0
+                else:
+                    stagnation += 1
+
+                # Train models periodically, but only if all classes are represented
+                if len(X_train) >= training_data_size and len(X_train) % 50 == 0 and all(count > 0 for count in class_counts.values()):
+                    X_scaled = scaler.fit_transform(np.array(X_train))
+                    y_array = np.array(y_train)
+                    model_xgb.fit(X_scaled, y_array)
+                    model_lgb.fit(X_scaled, y_array)
+
+            # 4. Cool temperature
+            temperature *= 0.995
+
+            # Increment step counter
+            steps_taken += 1
+
+        # Convert back to full solution
+        return best["score"], Solution(
+            best["signed"],
+            [],
+            best["books"],
+            {b for books in best["books"].values() for b in books}
+        )
+        
     def monte_carlo_search(self, data, num_iterations=1000, time_limit=None):
         """
         Monte Carlo search algorithm for finding optimal library configurations.

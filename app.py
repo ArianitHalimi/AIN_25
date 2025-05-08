@@ -309,6 +309,40 @@ os.makedirs(output_folder, exist_ok=True)
 #     'switch_book_instance.txt'
 # ]
 
+
+# print("---------- Simulated Annealing With Cutoff And ML Algorithms----------")
+# for file in directory:
+#     if file.endswith('.txt'):
+#         parser = Parser(f'./input/{file}')
+#         data = parser.parse()
+#         score, solution = solver.simulated_annealing_with_cutoff_and_ml_algorithms(data, total_time_ms=1000)
+
+#         solution.export(f'./output/{file}')
+#         print(f'Final score: {score:,}')
+#         print(f'Solution exported to ./output/{file}')
+
+# input_folder = './input'
+# output_folder = './output'
+# os.makedirs(output_folder, exist_ok=True)
+
+# instance_files = [
+#     'UPFIEK.txt',
+#     'a_example.txt',
+#     'b_read_on.txt',
+#     'c_incunabula.txt',
+#     'd_tough_choices.txt',
+#     'e_so_many_books.txt',
+#     'f_libraries_of_the_world.txt',
+#     'Toy instance.txt',
+#     'B5000_L90_D21.txt',
+#     'B50000_L400_D28.txt',
+#     'B100000_L600_D28.txt',
+#     'B90000_L850_D21.txt',
+#     'B95000_L2000_D28.txt',
+#     'switch_book_instance.txt'
+# ]
+
+
 print("---------- VARIABLE NEIGHBORHOOD SEARCH ----------")
 
 for filename in os.listdir(input_folder):

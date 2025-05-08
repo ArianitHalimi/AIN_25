@@ -1,3 +1,4 @@
+import csv
 from models import Parser
 from models import Solver
 
@@ -338,23 +339,85 @@ directory = os.listdir('input')
 # print("---------- GREAT DELUGE ALGORITHM ----------")
 # for file in directory:
 #     if file.endswith('.txt'):
+#         if file in ["c_incunabula.txt"]:
+#             parser = Parser(f'./input/{file}')
+#             print(parser)
+#             data = parser.parse()
+
+#             start_time = time.time()
+#             score, solution = solver.enhanced_great_deluge_algorithm(data)
+#             end_time = time.time()
+#             elapsed_time = end_time - start_time
+
+#             solution.export(f'./output/gda-simple/{file}')
+#             print(f'Final score: {score:,}')
+#             print(f'Time taken: {elapsed_time:.2f} seconds')
+
+#             with open('./output/gda-simple/notes-simple.txt', 'a') as notes:
+#                 notes.write(f'From: {file}\n')
+#                 notes.write(f'Final score: {score:,}\n')
+#                 notes.write(f'Time taken: {elapsed_time:.2f} seconds\n\n')
+
+# print("---------- PARALLELED GREAT DELUGE ALGORITHM ----------")
+# with open('./output/parallel-gda/optimization_log.csv', 'w') as log:
+#     log.write("filename,score,time_seconds,phases_executed,solution_diversity\n")
+    
+# for file in directory:
+#     if file in ["a_example.txt"]:
 #         parser = Parser(f'./input/{file}')
 #         print(parser)
 #         data = parser.parse()
 
 #         start_time = time.time()
-#         score, solution = solver.great_deluge_algorithm(data, max_time=300, max_iterations=1000)
+#         # Get runner instance along with results
+#         gda_runner, score, solution = solver.run_cpu_optimized_gda(data, max_time=300)
 #         end_time = time.time()
 #         elapsed_time = end_time - start_time
 
-#         solution.export(f'./output/gda/{file}')
-#         print(f'Final score: {score:,}')
-#         print(f'Time taken: {elapsed_time:.2f} seconds')
+#         # Generate performance analysis
+#         gda_runner.analyze_performance()
+        
+#         # Decision for extended run
+#         print("should continue value: ", gda_runner.should_continue(score))
+#         if gda_runner.should_continue(score):
+#             print("\nSignificant potential detected - extending run...")
+#             ext_score, ext_solution = gda_runner.run_iterative_phases(600)  # 10 more minutes
+#             if ext_score > score:
+#                 score, solution = ext_score, ext_solution
+#                 elapsed_time = time.time() - start_time
+#                 print(f"Improved score after extension: {score}")
+#             else:
+#                 print("Extension didn't improve results")
 
-#         with open('./output/gda/notes.txt', 'a') as notes:
-#             notes.write(f'From: {file}\n')
-#             notes.write(f'Final score: {score:,}\n')
-#             notes.write(f'Time taken: {elapsed_time:.2f} seconds\n\n')
+#         solution.export(f'./output/parallel-gda/{file}')
+        
+#         metrics = {
+#             'file': file,
+#             'score': score,
+#             'time': elapsed_time,
+#             'phases': len(gda_runner.phase_history),
+#             'diversity': gda_runner.phase_history[-1][3] if gda_runner.phase_history else 0.0
+#         }
+        
+#         # Console output
+#         print(f"\nFINAL RESULTS FOR {file}")
+#         print(f"Best score: {metrics['score']:,}")
+#         print(f"Total time: {metrics['time']:.2f}s")
+#         print(f"Phases executed: {metrics['phases']}")
+#         print(f"Solution diversity: {metrics['diversity']:.2f}")
+        
+#         # CSV logging
+#         with open('./output/parallel-gda/optimization_log.csv', 'a') as log:
+#             writer = csv.writer(log)
+#             writer.writerow([
+#                 metrics['file'],
+#                 metrics['score'],
+#                 f"{metrics['time']:.2f}",
+#                 metrics['phases'],
+#                 f"{metrics['diversity']:.2f}"
+#             ])
+            
+#         print(f"\nCompleted processing {file}\n")
 
 # if __name__ == '__main__':
 #     print("---------- HYBRID PARALLEL EVOLUTIONARY SEARCH ----------")

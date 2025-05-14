@@ -2,7 +2,7 @@ from models import Parser
 from models import Solver
 
 
-import os
+import os, sys
 import time
 import multiprocessing
 # import tkinter as tk
@@ -390,3 +390,43 @@ def run_parallel_sa():
 if __name__ == "__main__":
     multiprocessing.freeze_support()
     run_parallel_sa()
+
+# if __name__ == '__main__':
+#     _directory = './Large-scale test set (50 instances)'
+#     ub_folder = './output/upper_bounds'
+#     os.makedirs(ub_folder, exist_ok=True)
+
+#     if not os.path.isdir(_directory):
+#         print(f"Informatë: Folderi '{_directory}' nuk është gjetur.")
+#         sys.exit(1)
+
+#     instances = sorted(
+#         f for f in os.listdir(_directory)
+#         if f.endswith('.txt') or f.endswith('.in')
+#     )
+
+#     if not instances:
+#         print(f"Informatë: Nuk u gjetën fajlla .txt ose .in në '{_directory}'.")
+#         sys.exit(1)
+
+#     report_path = os.path.join(ub_folder, 'upper_bounds.txt')
+#     with open(report_path, 'w') as report:
+#         header = f"{'Instance':<40} {'Time-Aware':>12} {'Greedy':>12} {'Library-Only':>14}"
+#         separator = '-' * 80
+
+#         report.write(header + "\n")
+#         report.write(separator + "\n")
+#         print(header)
+#         print(separator)
+
+#         for fname in instances:
+#             full_path = os.path.join(_directory, fname)
+#             time_aware = solver.time_aware_score(full_path)
+#             greedy = solver.greedy_score(full_path)
+#             library_only = solver.library_only_score(full_path)
+
+#             line = f"{fname:<40} {time_aware:12} {greedy:12} {library_only:14}"
+#             report.write(line + "\n")
+#             print(line)
+
+#     print(f"\nRaporti është ruajtur në: {report_path}")

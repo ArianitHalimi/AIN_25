@@ -1,6 +1,8 @@
 import random
 from collections import defaultdict
+import threading
 import time
+from models.GreatDeluge.great_deluge import ParallelGDARunner
 from models.library import Library
 import os
 # from tqdm import tqdm
@@ -661,6 +663,52 @@ class Solver:
     def max_possible_score(self, data):
 
         return sum(book.score for book in data.books.values())
+
+
+    def hill_climbing_with_random_restarts_basic(self, data, time_limit_ms=60000):
+        
+        time_intervals = [100, 200, 300, 500, 800]
+        
+        solution = self.generate_initial_solution_grasp(data)
+        best_solution = copy.deepcopy(solution)
+
+        start_time = time.time()
+        total_time_ms = 0
+        
+        while total_time_ms < time_limit_ms:
+            restart_time_ms = random.choice(time_intervals)
+            restart_deadline = time.time() + (restart_time_ms / 1000)
+            
+            while time.time() < restart_deadline and total_time_ms < time_limit_ms:
+                tweak_method = random.choice([
+                    self.tweak_solution_swap_signed,
+                    self.tweak_solution_swap_signed_with_unsigned,
+                    self.tweak_solution_swap_last_book,
+                    self.tweak_solution_swap_same_books,
+                    self.tweak_solution_swap_neighbor_libraries,
+                    self.tweak_solution_insert_library,
+                ])
+
+                new_solution = tweak_method(copy.deepcopy(solution), data)
+                
+                if new_solution.fitness_score > solution.fitness_score:
+                    solution = copy.deepcopy(new_solution)
+                    
+                total_time_ms = (time.time() - start_time) * 1000
+                
+                if solution.fitness_score >= data.calculate_upper_bound() or total_time_ms >= time_limit_ms:
+                    break
+            
+            if solution.fitness_score > best_solution.fitness_score:
+                best_solution = copy.deepcopy(solution)
+            
+            solution = self.generate_initial_solution_grasp(data)
+            
+            if best_solution.fitness_score >= data.calculate_upper_bound() or total_time_ms >= time_limit_ms:
+                break
+        
+        return best_solution, best_solution.fitness_score
+
 
     def hill_climbing_with_random_restarts(self, data, total_time_ms=1000):
         Library._id_counter = 0
@@ -1623,6 +1671,15 @@ class Solver:
         tournament = random.sample(population, tournament_size)
         return max(tournament, key=lambda x: x.fitness_score)
     
+    def run_cpu_optimized_gda(self, data, max_time=300):
+        """
+        Run Great Deluge Algorithm with CPU-core optimized parallelism
+        Returns: (runner_instance, best_score, best_solution)
+        """
+        runner = ParallelGDARunner(self, data)
+        score, solution = runner.run_iterative_phases(max_total_time=max_time)
+        return runner, score, solution
+
     def great_deluge_algorithm(self, data, max_time=300, max_iterations=1000, delta_B=None):
         """
         Enhanced Great Deluge Algorithm with GRASP initialization and optimized parameters

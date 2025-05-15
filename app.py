@@ -1,3 +1,4 @@
+import csv
 from models import Parser
 from models import Solver
 
@@ -146,20 +147,19 @@ directory = os.listdir('input')
 #         print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
 
 
-print("---------- Feature-based Tabu Search ----------")
+# print("---------- Feature-based Tabu Search ----------")
 
-for file in directory:
+# parser = Parser(f'./input/e_so_many_books.txt')
+# data = parser.parse()
+# solver = Solver()
+# optimized_solution = solver.hill_climbing_with_random_restarts_basic(data, 30000)
 
-    if file.endswith('.txt'):
-        parser = Parser(f'./input/{file}')
-        data = parser.parse()
-        solver = Solver()
-        initial_solution = solver.generate_initial_solution_grasp(data)
-        optimized_solution = solver.feature_based_tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
+# initial_solution = solver.generate_initial_solution_grasp(data)
+# optimized_solution = solver.feature_based_tabu_search(initial_solution, data, tabu_max_len=10, n=5, max_iterations=100)
 
-        # optimized_solution.export('./output/output.txt')
+# optimized_solution.export('./output/output.txt')
 
-        print(f"Best Fitness Score for {file}: {optimized_solution.fitness_score}")
+# print(f"Best Fitness Score for: {optimized_solution[1]}")
 
 
 # print("---------- ITERATED LOCAL SEARCH WITH RANDOM RESTARTS ----------")
@@ -288,9 +288,9 @@ for file in directory:
 #         print(f'Final score: {score:,}')
 #         print(f'Solution exported to ./output/{file}')
 
-input_folder = './input'
-output_folder = './output'
-os.makedirs(output_folder, exist_ok=True)
+# input_folder = './input'
+# output_folder = './output'
+# os.makedirs(output_folder, exist_ok=True)
 
 # instance_files = [
 #     'UPFIEK.txt',
@@ -309,53 +309,115 @@ os.makedirs(output_folder, exist_ok=True)
 #     'switch_book_instance.txt'
 # ]
 
-print("---------- VARIABLE NEIGHBORHOOD SEARCH ----------")
+# print("---------- VARIABLE NEIGHBORHOOD SEARCH ----------")
 
-for filename in os.listdir(input_folder):
-    if filename.endswith('.txt'):
-        input_path = os.path.join(input_folder, filename)
-        output_path = os.path.join(output_folder, f'vns_{filename}')
+# for filename in os.listdir(input_folder):
+#     if filename.endswith('.txt'):
+#         input_path = os.path.join(input_folder, filename)
+#         output_path = os.path.join(output_folder, f'vns_{filename}')
 
-        try:
-            print(f"Parsing {filename}...")
-            parser = Parser(input_path)
-            data = parser.parse()
+#         try:
+#             print(f"Parsing {filename}...")
+#             parser = Parser(input_path)
+#             data = parser.parse()
 
-            print(f"Running VNS on {filename}...")
+#             print(f"Running VNS on {filename}...")
 
-            # Run VNS algorithm
-            score, solution = solver.variable_neighborhood_search(data, time_limit_ms=10000)
+#             # Run VNS algorithm
+#             score, solution = solver.variable_neighborhood_search(data, time_limit_ms=10000)
 
-            # Export the solution
-            solution.export(output_path)
+#             # Export the solution
+#             solution.export(output_path)
 
-            print(f'Final VNS score for {filename}: {score:,}')
-            print(f'Solution exported to: {output_path}')
-            print('-' * 50)
+#             print(f'Final VNS score for {filename}: {score:,}')
+#             print(f'Solution exported to: {output_path}')
+#             print('-' * 50)
 
-        except Exception as e:
-            print(f" Error processing {filename}: {e}")
+#         except Exception as e:
+#             print(f" Error processing {filename}: {e}")
 
 # print("---------- GREAT DELUGE ALGORITHM ----------")
 # for file in directory:
 #     if file.endswith('.txt'):
+#         if file in ["c_incunabula.txt"]:
+#             parser = Parser(f'./input/{file}')
+#             print(parser)
+#             data = parser.parse()
+
+#             start_time = time.time()
+#             score, solution = solver.enhanced_great_deluge_algorithm(data)
+#             end_time = time.time()
+#             elapsed_time = end_time - start_time
+
+#             solution.export(f'./output/gda-simple/{file}')
+#             print(f'Final score: {score:,}')
+#             print(f'Time taken: {elapsed_time:.2f} seconds')
+
+#             with open('./output/gda-simple/notes-simple.txt', 'a') as notes:
+#                 notes.write(f'From: {file}\n')
+#                 notes.write(f'Final score: {score:,}\n')
+#                 notes.write(f'Time taken: {elapsed_time:.2f} seconds\n\n')
+
+# print("---------- PARALLELED GREAT DELUGE ALGORITHM ----------")
+# with open('./output/parallel-gda/optimization_log.csv', 'w') as log:
+#     log.write("filename,score,time_seconds,phases_executed,solution_diversity\n")
+    
+# for file in directory:
+#     if file in ["a_example.txt"]:
 #         parser = Parser(f'./input/{file}')
 #         print(parser)
 #         data = parser.parse()
 
 #         start_time = time.time()
-#         score, solution = solver.great_deluge_algorithm(data, max_time=300, max_iterations=1000)
+#         # Get runner instance along with results
+#         gda_runner, score, solution = solver.run_cpu_optimized_gda(data, max_time=300)
 #         end_time = time.time()
 #         elapsed_time = end_time - start_time
 
-#         solution.export(f'./output/gda/{file}')
-#         print(f'Final score: {score:,}')
-#         print(f'Time taken: {elapsed_time:.2f} seconds')
+#         # Generate performance analysis
+#         gda_runner.analyze_performance()
+        
+#         # Decision for extended run
+#         print("should continue value: ", gda_runner.should_continue(score))
+#         if gda_runner.should_continue(score):
+#             print("\nSignificant potential detected - extending run...")
+#             ext_score, ext_solution = gda_runner.run_iterative_phases(600)  # 10 more minutes
+#             if ext_score > score:
+#                 score, solution = ext_score, ext_solution
+#                 elapsed_time = time.time() - start_time
+#                 print(f"Improved score after extension: {score}")
+#             else:
+#                 print("Extension didn't improve results")
 
-#         with open('./output/gda/notes.txt', 'a') as notes:
-#             notes.write(f'From: {file}\n')
-#             notes.write(f'Final score: {score:,}\n')
-#             notes.write(f'Time taken: {elapsed_time:.2f} seconds\n\n')
+#         solution.export(f'./output/parallel-gda/{file}')
+        
+#         metrics = {
+#             'file': file,
+#             'score': score,
+#             'time': elapsed_time,
+#             'phases': len(gda_runner.phase_history),
+#             'diversity': gda_runner.phase_history[-1][3] if gda_runner.phase_history else 0.0
+#         }
+        
+#         # Console output
+#         print(f"\nFINAL RESULTS FOR {file}")
+#         print(f"Best score: {metrics['score']:,}")
+#         print(f"Total time: {metrics['time']:.2f}s")
+#         print(f"Phases executed: {metrics['phases']}")
+#         print(f"Solution diversity: {metrics['diversity']:.2f}")
+        
+#         # CSV logging
+#         with open('./output/parallel-gda/optimization_log.csv', 'a') as log:
+#             writer = csv.writer(log)
+#             writer.writerow([
+#                 metrics['file'],
+#                 metrics['score'],
+#                 f"{metrics['time']:.2f}",
+#                 metrics['phases'],
+#                 f"{metrics['diversity']:.2f}"
+#             ])
+            
+#         print(f"\nCompleted processing {file}\n")
 
 # if __name__ == '__main__':
 #     print("---------- HYBRID PARALLEL EVOLUTIONARY SEARCH ----------")
@@ -373,23 +435,24 @@ for filename in os.listdir(input_folder):
 #             solution.export(f'./output/hybrid_evolutionary_{file}')
 #             print(f'Final score: {score:,}')
 #             print(f'Solution exported to ./output/hybrid_evolutionary_{file}')
-def run_parallel_sa():
+# def run_parallel_sa():
 
-    print("---------- SIMULATED ANNEALING WITH MULTIPLE TEMPERATURE FUNCTIONS (PARALLEL) ----------")
-    for file in directory:
-        if file.endswith('.txt'):
-            print(f'Computing ./input/{file}')
-            parser = Parser(f'./input/{file}')
-            data = parser.parse()
-            score, solution = solver.simulated_annealing_hybrid_parallel(data, max_iterations=1000)
-            print(f'Best score from SA (parallel) for {file}: {score:,}')
-            output_file = f'./output/sa_hybrid_parallel_{file}'
-            solution.export(output_file)
-            print(f"Processing complete! Output written to: {output_file}")
+#     print("---------- SIMULATED ANNEALING WITH MULTIPLE TEMPERATURE FUNCTIONS (PARALLEL) ----------")
+#     for file in directory:
+#         if file.endswith('.txt'):
+#             print(f'Computing ./input/{file}')
+#             parser = Parser(f'./input/{file}')
+#             data = parser.parse()
+#             score, solution = solver.simulated_annealing_hybrid_parallel(data, max_iterations=1000)
+#             print(f'Best score from SA (parallel) for {file}: {score:,}')
+#             output_file = f'./output/sa_hybrid_parallel_{file}'
+#             solution.export(output_file)
+#             print(f"Processing complete! Output written to: {output_file}")
            
-if __name__ == "__main__":
-    multiprocessing.freeze_support()
-    run_parallel_sa()
+# if __name__ == "__main__":
+#     multiprocessing.freeze_support()
+#     run_parallel_sa()
+
 
 # if __name__ == '__main__':
 #     _directory = './Large-scale test set (50 instances)'

@@ -1935,3 +1935,72 @@ class Solver:
             if best_solution.fitness_score > shared_best["score"]:
                 shared_best["score"] = best_solution.fitness_score
                 shared_best["solution"] = best_solution
+                
+    def time_aware_score(self, instance_file):
+        with open(instance_file, 'r') as f:
+            _, L, D = map(int, f.readline().split())
+            scores = list(map(int, f.readline().split()))
+            seen = set()
+            for _ in range(L):
+                parts = f.readline().split()
+                Ni, signup, throughput = map(int, parts[:3])
+                ids = list(map(int, f.readline().split()))
+                cap = max(0, (D - signup) * throughput)
+                top = sorted(ids, key=lambda i: scores[i], reverse=True)[:cap]
+                seen.update(top)
+        return sum(scores[i] for i in seen)
+
+    def greedy_score(self, instance_file):
+        with open(instance_file, 'r') as f:
+            _, L, D = map(int, f.readline().split())
+            scores = list(map(int, f.readline().split()))
+            lib_stats = []
+            for _ in range(L):
+                parts = f.readline().split()
+                Ni, signup, throughput = map(int, parts[:3])
+                ids = list(map(int, f.readline().split()))
+                if signup < D:
+                    cap = (D - signup) * throughput
+                    total = sum(sorted((scores[i] for i in ids), reverse=True)[:cap])
+                    lib_stats.append((signup, throughput, ids, total))
+        best = 0
+        strategies = [
+            lambda s,t,ids,tot: tot/(s+1),
+            lambda s,t,ids,tot: t/(s+1),
+            lambda s,t,ids,tot: tot,
+            lambda s,t,ids,tot: t
+        ]
+        
+        for key in strategies:
+            day = subtotal = 0
+            for s,t,ids,tot in sorted(lib_stats, key=lambda x: key(*x), reverse=True):
+                if day + s >= D: continue
+                day += s
+                scan = (D - day) * t
+                ids_sorted = sorted(ids, key=lambda i: scores[i], reverse=True)
+                subtotal += sum(scores[i] for i in ids_sorted[:scan])
+            best = max(best, subtotal)
+        return best
+
+    def library_only_score(self, instance_file):
+        with open(instance_file, 'r') as f:
+            _, L, D = map(int, f.readline().split())
+            scores = list(map(int, f.readline().split()))
+            contribs = []
+            signups = []
+            for _ in range(L):
+                parts = f.readline().split()
+                _, signup, throughput = map(int, parts[:3])
+                ids = list(map(int, f.readline().split()))
+                signups.append(signup)
+                cap = max(0, (D - signup) * throughput)
+                top_scores = sorted((scores[i] for i in ids), reverse=True)[:cap]
+                contribs.append(sum(top_scores))
+        total_time = k = 0
+        for su in sorted(signups):
+            if total_time + su > D:
+                break
+            total_time += su
+            k += 1
+        top_k = sorted(contribs, reverse=True)[:k]
+        return sum(top_k)

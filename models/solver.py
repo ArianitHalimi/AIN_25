@@ -1950,37 +1950,33 @@ class Solver:
                 seen.update(top)
         return sum(scores[i] for i in seen)
 
-    def greedy_score(self, instance_file):
+    def greedy_upper_bound(self, instance_file):
         with open(instance_file, 'r') as f:
-            _, L, D = map(int, f.readline().split())
+            B, L, D = map(int, f.readline().split())
             scores = list(map(int, f.readline().split()))
             lib_stats = []
+
             for _ in range(L):
                 parts = f.readline().split()
-                Ni, signup, throughput = map(int, parts[:3])
+                _, signup, throughput = map(int, parts[:3])
                 ids = list(map(int, f.readline().split()))
-                if signup < D:
-                    cap = (D - signup) * throughput
-                    total = sum(sorted((scores[i] for i in ids), reverse=True)[:cap])
-                    lib_stats.append((signup, throughput, ids, total))
-        best = 0
-        strategies = [
-            lambda s,t,ids,tot: tot/(s+1),
-            lambda s,t,ids,tot: t/(s+1),
-            lambda s,t,ids,tot: tot,
-            lambda s,t,ids,tot: t
-        ]
-        
-        for key in strategies:
-            day = subtotal = 0
-            for s,t,ids,tot in sorted(lib_stats, key=lambda x: key(*x), reverse=True):
-                if day + s >= D: continue
-                day += s
-                scan = (D - day) * t
-                ids_sorted = sorted(ids, key=lambda i: scores[i], reverse=True)
-                subtotal += sum(scores[i] for i in ids_sorted[:scan])
-            best = max(best, subtotal)
-        return best
+
+                sorted_scores = sorted((scores[i] for i in ids), reverse=True)
+                max_books = min(len(ids), D * throughput)
+                total = sum(sorted_scores[:max_books])
+                lib_stats.append((signup, throughput, ids, total))
+
+        all_potential_books = []
+        for _, throughput, ids, _ in lib_stats:
+            max_books = min(len(ids), D * throughput)
+            best_books = sorted([(i, scores[i]) for i in ids], key=lambda x: x[1], reverse=True)[:max_books]
+            all_potential_books.extend(best_books)
+
+        all_potential_books.sort(key=lambda x: x[1], reverse=True)
+        ultra_bound = sum(score for _, score in all_potential_books[:B])
+        time_aware = self.time_aware_score(instance_file)
+
+        return max(ultra_bound, time_aware)
 
     def library_only_score(self, instance_file):
         with open(instance_file, 'r') as f:

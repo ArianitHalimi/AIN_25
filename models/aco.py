@@ -15,18 +15,18 @@ class ACOOptimizer:
         self,
         data,
         initial_solution: Solution,
-        num_ants: int = 20,
-        num_iterations: int = 1000,
+        num_ants: int = 50,
+        num_iterations: int = 50,
         alpha: float = 1.0,
-        beta: float = 1.0,
+        beta: float = 2.0,
         evaporation_rate: float = 0.1,
-        pheromone_deposit: float = 10000.0
+        pheromone_deposit: float = 1.0
     ):
         self.data = data
         # Only optimize the libraries already in the solution
         self.library_order = (
-            list(initial_solution.signed_libraries) +
-            list(initial_solution.unsigned_libraries)
+            list(initial_solution.unsigned_libraries) +
+            list(initial_solution.signed_libraries)
         )
         # Best solution so far
         self.best_solution = copy.deepcopy(initial_solution)

@@ -273,7 +273,6 @@ class HyperHeuristicSolver:
             k = random.randint(1, maxk)
             # Greedy approach: pick the heuristic that gives the best result
             chosen_heuristic= None
-            print(f'k={k}')
             for heuristic in self.heuristics:
                 # try to use each one and pick the best
                 sub_candidate_solution = heuristic(current_solution, data, k)
@@ -289,8 +288,6 @@ class HyperHeuristicSolver:
                 print("set maxk to 1")
                 maxk = 1
                 continue
-            print(chosen_heuristic.__name__)
-            print(iter_count)
             idx = self.heuristics.index(chosen_heuristic)
              # Log the used heuristic name.
             heuristic_name = chosen_heuristic.__name__
@@ -344,4 +341,7 @@ class HyperHeuristicSolver:
 # python validator.py ../input/B100_L9_D18.in ../output/hyper/B100_L9_D18/B100_L9_D18.in
 # python validator.py ../input/B70_L8_D7.in ../output/hyper/B70_L8_D7/B70_L8_D7.in
 # python validator.py ../input/B95_L5_D12.in ../output/hyper/B95_L5_D12/B95_L5_D12.in
+
+# # python validator.py ../input/e_so_many_books.txt ../output/hyper/e_so_many_books/aco_e_so_many_books.txt
+
 
